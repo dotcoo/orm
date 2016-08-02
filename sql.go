@@ -11,63 +11,63 @@ import (
 )
 
 type SQL struct {
-	keywords          []string      // keywords
-	columns           []string      // columns
-	table             string        // table
-	sets              []string      // sets
-	setsParams        []interface{} // sets params
-	joins             []string      // joins
-	wheres            []string      // where
-	wheresParams      []interface{} // where params
-	countWheres       []string      // count where
-	countWheresParams []interface{} // count where params
-	groups            []string      // group
-	havings           []string      // having
-	havingsParams     []interface{} // having params
-	orders            []string      // order
-	limit             int           // limit
-	offset            int           // offset
-	forUpdate         string        // read lock
-	lockInShareMode   string        // write lock
-	orm               *ORM          // ORM
+	keywords        []string      // keywords
+	columns         []string      // columns
+	table           string        // table
+	sets            []string      // sets
+	setsArgs        []interface{} // sets args
+	joins           []string      // joins
+	wheres          []string      // where
+	wheresArgs      []interface{} // where args
+	countWheres     []string      // count where
+	countWheresArgs []interface{} // count where args
+	groups          []string      // group
+	havings         []string      // having
+	havingsArgs     []interface{} // having args
+	orders          []string      // order
+	limit           int           // limit
+	offset          int           // offset
+	forUpdate       string        // read lock
+	lockInShareMode string        // write lock
+	orm             *ORM          // ORM
 }
 
 func NewSQL(table ...string) *SQL {
-	sql := new(SQL)
-	sql.keywords = make([]string, 0, 0)
-	sql.columns = make([]string, 0, 0)
-	sql.table = ""
+	s := new(SQL)
+	s.keywords = make([]string, 0, 0)
+	s.columns = make([]string, 0, 0)
+	s.table = ""
 	if len(table) > 0 {
-		sql.table = table[0]
+		s.table = table[0]
 	}
-	sql.sets = make([]string, 0, 20)
-	sql.setsParams = make([]interface{}, 0, 20)
-	sql.joins = make([]string, 0, 0)
-	sql.wheres = make([]string, 0, 5)
-	sql.wheresParams = make([]interface{}, 0, 20)
-	sql.groups = make([]string, 0)
-	sql.havings = make([]string, 0)
-	sql.havingsParams = make([]interface{}, 0)
-	sql.orders = make([]string, 0, 1)
-	sql.limit = -1
-	sql.offset = -1
-	sql.forUpdate = ""
-	sql.lockInShareMode = ""
-	sql.orm = DefaultORM
-	return sql
+	s.sets = make([]string, 0, 20)
+	s.setsArgs = make([]interface{}, 0, 20)
+	s.joins = make([]string, 0, 0)
+	s.wheres = make([]string, 0, 5)
+	s.wheresArgs = make([]interface{}, 0, 20)
+	s.groups = make([]string, 0)
+	s.havings = make([]string, 0)
+	s.havingsArgs = make([]interface{}, 0)
+	s.orders = make([]string, 0, 1)
+	s.limit = -1
+	s.offset = -1
+	s.forUpdate = ""
+	s.lockInShareMode = ""
+	s.orm = DefaultORM
+	return s
 }
 
 func (s *SQL) Reset() *SQL {
 	s.keywords = s.keywords[0:0]
 	s.columns = s.columns[0:0]
 	s.sets = s.sets[0:0]
-	s.setsParams = s.setsParams[0:0]
+	s.setsArgs = s.setsArgs[0:0]
 	s.joins = s.joins[0:0]
 	s.wheres = s.wheres[0:0]
-	s.wheresParams = s.wheresParams[0:0]
+	s.wheresArgs = s.wheresArgs[0:0]
 	s.groups = s.groups[0:0]
 	s.havings = s.havings[0:0]
-	s.havingsParams = s.havingsParams[0:0]
+	s.havingsArgs = s.havingsArgs[0:0]
 	s.orders = s.orders[0:0]
 	s.limit = -1
 	s.offset = -1
@@ -107,7 +107,7 @@ func (s *SQL) From(table string, alias ...string) *SQL {
 
 func (s *SQL) Set(col string, val interface{}) *SQL {
 	s.sets = append(s.sets, fmt.Sprintf("`%s` = ?", col))
-	s.setsParams = append(s.setsParams, val)
+	s.setsArgs = append(s.setsArgs, val)
 	return s
 }
 
@@ -120,16 +120,16 @@ func (s *SQL) Join(table, alias, cond string) *SQL {
 	return s
 }
 
-func (s *SQL) Where(where string, params ...interface{}) *SQL {
+func (s *SQL) Where(where string, args ...interface{}) *SQL {
 	s.wheres = append(s.wheres, where)
-	s.wheresParams = append(s.wheresParams, params...)
+	s.wheresArgs = append(s.wheresArgs, args...)
 	return s
 }
 
-func (s *SQL) WhereIn(where string, params ...interface{}) *SQL {
-	where = strings.Replace(where, "?", "?"+strings.Repeat(", ?", len(params)-1), 1)
+func (s *SQL) WhereIn(where string, args ...interface{}) *SQL {
+	where = strings.Replace(where, "?", "?"+strings.Repeat(", ?", len(args)-1), 1)
 	s.wheres = append(s.wheres, where)
-	s.wheresParams = append(s.wheresParams, params...)
+	s.wheresArgs = append(s.wheresArgs, args...)
 	return s
 }
 
@@ -138,9 +138,9 @@ func (s *SQL) Group(groups ...string) *SQL {
 	return s
 }
 
-func (s *SQL) Having(having string, params ...interface{}) *SQL {
+func (s *SQL) Having(having string, args ...interface{}) *SQL {
 	s.havings = append(s.havings, having)
-	s.havingsParams = append(s.havingsParams, params...)
+	s.havingsArgs = append(s.havingsArgs, args...)
 	return s
 }
 
@@ -174,7 +174,7 @@ func (s *SQL) LockInShareMode() *SQL {
 func (s *SQL) SetMap(data map[string]interface{}) *SQL {
 	for col, val := range data {
 		s.sets = append(s.sets, fmt.Sprintf("`%s` = ?", col))
-		s.setsParams = append(s.setsParams, val)
+		s.setsArgs = append(s.setsArgs, val)
 	}
 	return s
 }
@@ -187,13 +187,13 @@ func (s *SQL) Page(page, pagesize int) *SQL {
 
 func (s *SQL) Plus(col string, val int) *SQL {
 	s.sets = append(s.sets, fmt.Sprintf("`%s` = `%s` + ?", col, col))
-	s.setsParams = append(s.setsParams, val)
+	s.setsArgs = append(s.setsArgs, val)
 	return s
 }
 
 func (s *SQL) Incr(col string, val int) *SQL {
 	s.sets = append(s.sets, fmt.Sprintf("`%s` = last_insert_id(`%s` + ?)", col, col))
-	s.setsParams = append(s.setsParams, val)
+	s.setsArgs = append(s.setsArgs, val)
 	return s
 }
 
@@ -243,18 +243,18 @@ func (s *SQL) ToSelect(columns ...string) (string, []interface{}) {
 	forUpdate := s.forUpdate
 	lockInShareMode := s.lockInShareMode
 
-	sql := fmt.Sprintf("SELECT%s %s FROM %s%s%s%s%s%s%s%s%s%s", keyword, column, s.table, join, where, group, having, order, limit, offset, forUpdate, lockInShareMode)
+	sq := fmt.Sprintf("SELECT%s %s FROM %s%s%s%s%s%s%s%s%s%s", keyword, column, s.table, join, where, group, having, order, limit, offset, forUpdate, lockInShareMode)
 
-	params := make([]interface{}, 0, 20)
-	params = append(params, s.wheresParams...)
-	params = append(params, s.havingsParams...)
+	args := make([]interface{}, 0, 20)
+	args = append(args, s.wheresArgs...)
+	args = append(args, s.havingsArgs...)
 
 	s.countWheres = s.countWheres[0:0]
-	s.countWheresParams = s.countWheresParams[0:0]
+	s.countWheresArgs = s.countWheresArgs[0:0]
 	s.countWheres = append(s.countWheres, s.wheres...)
-	s.countWheresParams = append(s.countWheresParams, s.wheresParams...)
+	s.countWheresArgs = append(s.countWheresArgs, s.wheresArgs...)
 
-	return sql, params
+	return sq, args
 }
 
 func (s *SQL) ToCount() (string, []interface{}) {
@@ -263,7 +263,7 @@ func (s *SQL) ToCount() (string, []interface{}) {
 		where = " WHERE " + strings.Join(s.countWheres, " AND ")
 	}
 
-	return fmt.Sprintf("SELECT count(*) AS count FROM %s%s", s.table, where), s.countWheresParams
+	return fmt.Sprintf("SELECT count(*) AS count FROM %s%s", s.table, where), s.countWheresArgs
 }
 
 func (s *SQL) ToCountMySQL() (string, []interface{}) {
@@ -277,7 +277,7 @@ func (s *SQL) ToInsert() (string, []interface{}) {
 
 	defer s.Reset()
 
-	return fmt.Sprintf("INSERT %s SET %s", s.table, strings.Join(s.sets, ", ")), s.setsParams
+	return fmt.Sprintf("INSERT %s SET %s", s.table, strings.Join(s.sets, ", ")), s.setsArgs
 }
 
 func (s *SQL) ToReplace() (string, []interface{}) {
@@ -287,7 +287,7 @@ func (s *SQL) ToReplace() (string, []interface{}) {
 
 	defer s.Reset()
 
-	return fmt.Sprintf("REPLACE %s SET %s", s.table, strings.Join(s.sets, ", ")), s.setsParams
+	return fmt.Sprintf("REPLACE %s SET %s", s.table, strings.Join(s.sets, ", ")), s.setsArgs
 }
 
 func (s *SQL) ToUpdate() (string, []interface{}) {
@@ -311,13 +311,13 @@ func (s *SQL) ToUpdate() (string, []interface{}) {
 		limit = fmt.Sprintf(" LIMIT %d", s.limit)
 	}
 
-	sql := fmt.Sprintf("UPDATE %s SET %s WHERE %s%s%s", s.table, set, where, order, limit)
+	sq := fmt.Sprintf("UPDATE %s SET %s WHERE %s%s%s", s.table, set, where, order, limit)
 
-	params := make([]interface{}, 0, 20)
-	params = append(params, s.setsParams...)
-	params = append(params, s.wheresParams...)
+	args := make([]interface{}, 0, 20)
+	args = append(args, s.setsArgs...)
+	args = append(args, s.wheresArgs...)
 
-	return sql, params
+	return sq, args
 }
 
 func (s *SQL) ToDelete() (string, []interface{}) {
@@ -337,12 +337,12 @@ func (s *SQL) ToDelete() (string, []interface{}) {
 		limit = fmt.Sprintf(" LIMIT %d", s.limit)
 	}
 
-	return fmt.Sprintf("DELETE FROM %s WHERE %s%s%s", s.table, where, order, limit), s.wheresParams
+	return fmt.Sprintf("DELETE FROM %s WHERE %s%s%s", s.table, where, order, limit), s.wheresArgs
 }
 
 func (s *SQL) String() string {
-	sql, params := s.ToSelect()
-	return fmt.Sprintf("%s %v", sql, params)
+	sq, args := s.ToSelect()
+	return fmt.Sprintf("%s %v", sq, args)
 }
 
 // orm

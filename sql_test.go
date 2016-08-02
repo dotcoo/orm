@@ -26,67 +26,67 @@ func TestSQLSelect(t *testing.T) {
 		Offset(20).
 		ForUpdate().
 		LockInShareMode()
-	sql, params := s.ToSelect()
-	sql_select := "SELECT SQL_NO_CACHE SQL_CALC_FOUND_ROWS username, password, email, count(*) as count FROM `user` WHERE username = ? AND age BETWEEN ? AND ? AND no IN (?, ?, ?, ?, ?) GROUP BY age HAVING count > ? AND count < ? ORDER BY id DESC, username, password DESC LIMIT 10 OFFSET 20 FOR UPDATE LOCK IN SHARE MODE"
+	sq, params := s.ToSelect()
+	sq_select := "SELECT SQL_NO_CACHE SQL_CALC_FOUND_ROWS username, password, email, count(*) as count FROM `user` WHERE username = ? AND age BETWEEN ? AND ? AND no IN (?, ?, ?, ?, ?) GROUP BY age HAVING count > ? AND count < ? ORDER BY id DESC, username, password DESC LIMIT 10 OFFSET 20 FOR UPDATE LOCK IN SHARE MODE"
 	params_select := []interface{}{"dotcoo", 18, 25, 1, 2, 3, 4, 5, 3, 10}
-	if sql != sql_select || !reflect.DeepEqual(params, params_select) {
-		t.Errorf("sql_select error: %s, %v", sql, params)
+	if sq != sq_select || !reflect.DeepEqual(params, params_select) {
+		t.Errorf("sq_select error: %s, %v", sq, params)
 	}
 
-	sql, params = s.ToCount()
-	sql_count := "SELECT count(*) AS count FROM `user` WHERE username = ? AND age BETWEEN ? AND ? AND no IN (?, ?, ?, ?, ?)"
+	sq, params = s.ToCount()
+	sq_count := "SELECT count(*) AS count FROM `user` WHERE username = ? AND age BETWEEN ? AND ? AND no IN (?, ?, ?, ?, ?)"
 	params_count := []interface{}{"dotcoo", 18, 25, 1, 2, 3, 4, 5}
-	if sql != sql_count || !reflect.DeepEqual(params, params_count) {
-		t.Errorf("sql_count error: %s, %v", sql, params)
+	if sq != sq_count || !reflect.DeepEqual(params, params_count) {
+		t.Errorf("sq_count error: %s, %v", sq, params)
 	}
 
-	sql, params = s.ToCountMySQL()
-	sql_count_mysql := "SELECT FOUND_ROWS()"
+	sq, params = s.ToCountMySQL()
+	sq_count_mysql := "SELECT FOUND_ROWS()"
 	params_count_mysql := []interface{}{}
-	if sql != sql_count_mysql || !reflect.DeepEqual(params, params_count_mysql) {
-		t.Errorf("sql_count_mysql error: %s, %v", sql, params)
+	if sq != sq_count_mysql || !reflect.DeepEqual(params, params_count_mysql) {
+		t.Errorf("sq_count_mysql error: %s, %v", sq, params)
 	}
 
-	sql, params = s.From("blog", "b").Join("user", "u", "b.user_id = u.id").Where("b.start > ?", 200).Page(3, 10).ToSelect()
-	sql_join := "SELECT * FROM `blog` AS `b` LEFT JOIN `user` AS `u` ON b.user_id = u.id WHERE b.start > ? LIMIT 10 OFFSET 20"
+	sq, params = s.From("blog", "b").Join("user", "u", "b.user_id = u.id").Where("b.start > ?", 200).Page(3, 10).ToSelect()
+	sq_join := "SELECT * FROM `blog` AS `b` LEFT JOIN `user` AS `u` ON b.user_id = u.id WHERE b.start > ? LIMIT 10 OFFSET 20"
 	params_join := []interface{}{200}
-	if sql != sql_join || !reflect.DeepEqual(params, params_join) {
-		t.Errorf("sql_join error: %s, %v", sql, params)
+	if sq != sq_join || !reflect.DeepEqual(params, params_join) {
+		t.Errorf("sq_join error: %s, %v", sq, params)
 	}
 
-	sql, params = s.From("user").Set("username", "dotcoo").Set("password", "dotcoopwd").Set("age", 1).Where("id = ?", 1).ToUpdate()
-	sql_update := "UPDATE `user` SET `username` = ?, `password` = ?, `age` = ? WHERE id = ?"
+	sq, params = s.From("user").Set("username", "dotcoo").Set("password", "dotcoopwd").Set("age", 1).Where("id = ?", 1).ToUpdate()
+	sq_update := "UPDATE `user` SET `username` = ?, `password` = ?, `age` = ? WHERE id = ?"
 	params_update := []interface{}{"dotcoo", "dotcoopwd", 1, 1}
-	if sql != sql_update || !reflect.DeepEqual(params, params_update) {
-		t.Errorf("sql_update error: %s, %v", sql, params)
+	if sq != sq_update || !reflect.DeepEqual(params, params_update) {
+		t.Errorf("sq_update error: %s, %v", sq, params)
 	}
 
-	sql, params = s.Set("username", "dotcoo").Set("password", "dotcoopwd").Set("age", 1).ToReplace()
-	sql_replace := "REPLACE `user` SET `username` = ?, `password` = ?, `age` = ?"
+	sq, params = s.Set("username", "dotcoo").Set("password", "dotcoopwd").Set("age", 1).ToReplace()
+	sq_replace := "REPLACE `user` SET `username` = ?, `password` = ?, `age` = ?"
 	params_replace := []interface{}{"dotcoo", "dotcoopwd", 1}
-	if sql != sql_replace || !reflect.DeepEqual(params, params_replace) {
-		t.Errorf("sql_replace error: %s, %v", sql, params)
+	if sq != sq_replace || !reflect.DeepEqual(params, params_replace) {
+		t.Errorf("sq_replace error: %s, %v", sq, params)
 	}
 
-	sql, params = s.Where("id = ?", 1).ToDelete()
-	sql_delete := "DELETE FROM `user` WHERE id = ?"
+	sq, params = s.Where("id = ?", 1).ToDelete()
+	sq_delete := "DELETE FROM `user` WHERE id = ?"
 	params_delete := []interface{}{1}
-	if sql != sql_delete || !reflect.DeepEqual(params, params_delete) {
-		t.Errorf("sql_delete error: %s, %v", sql, params)
+	if sq != sq_delete || !reflect.DeepEqual(params, params_delete) {
+		t.Errorf("sq_delete error: %s, %v", sq, params)
 	}
 
-	sql, params = s.Plus("age", 1).Where("id = ?", 1).ToUpdate()
-	sql_plus := "UPDATE `user` SET `age` = `age` + ? WHERE id = ?"
+	sq, params = s.Plus("age", 1).Where("id = ?", 1).ToUpdate()
+	sq_plus := "UPDATE `user` SET `age` = `age` + ? WHERE id = ?"
 	params_plus := []interface{}{1, 1}
-	if sql != sql_plus || !reflect.DeepEqual(params, params_plus) {
-		t.Errorf("sql_plus error: %s, %v", sql, params)
+	if sq != sq_plus || !reflect.DeepEqual(params, params_plus) {
+		t.Errorf("sq_plus error: %s, %v", sq, params)
 	}
 
-	sql, params = s.Incr("age", 1).Where("id = ?", 1).ToUpdate()
-	sql_incr := "UPDATE `user` SET `age` = last_insert_id(`age` + ?) WHERE id = ?"
+	sq, params = s.Incr("age", 1).Where("id = ?", 1).ToUpdate()
+	sq_incr := "UPDATE `user` SET `age` = last_insert_id(`age` + ?) WHERE id = ?"
 	params_incr := []interface{}{1, 1}
-	if sql != sql_incr || !reflect.DeepEqual(params, params_incr) {
-		t.Errorf("sql_incr error: %s, %v", sql, params)
+	if sq != sq_incr || !reflect.DeepEqual(params, params_incr) {
+		t.Errorf("sq_incr error: %s, %v", sq, params)
 	}
 }
 

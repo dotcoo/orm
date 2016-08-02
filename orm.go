@@ -5,27 +5,27 @@
 package orm
 
 import (
-	stdsql "database/sql"
+	"database/sql"
 	"fmt"
 	"reflect"
 	"strings"
 	"time"
 )
 
-type DB interface {
-	Exec(query string, args ...interface{}) (stdsql.Result, error)
-	Prepare(query string) (*stdsql.Stmt, error)
-	Query(query string, args ...interface{}) (*stdsql.Rows, error)
-	QueryRow(query string, args ...interface{}) *stdsql.Row
+type dber interface {
+	Exec(query string, args ...interface{}) (sql.Result, error)
+	Prepare(query string) (*sql.Stmt, error)
+	Query(query string, args ...interface{}) (*sql.Rows, error)
+	QueryRow(query string, args ...interface{}) *sql.Row
 }
 
 type ORM struct {
-	DB       *stdsql.DB
-	Tx       *stdsql.Tx
+	DB       *sql.DB
+	Tx       *sql.Tx
 	BatchRow int
 }
 
-func NewORM(db *stdsql.DB) *ORM {
+func NewORM(db *sql.DB) *ORM {
 	o := new(ORM)
 	o.DB = db
 	o.Tx = nil
@@ -35,17 +35,17 @@ func NewORM(db *stdsql.DB) *ORM {
 
 // query
 
-func (o *ORM) getTxOrDB() DB {
+func (o *ORM) getTxOrDB() dber {
 	if o.Tx != nil {
 		return o.Tx
 	}
 	if o.DB != nil {
 		return o.DB
 	}
-	panic("ORM.DB is nil!")
+	panic("DB is nil!")
 }
 
-func (o *ORM) Exec(query string, args ...interface{}) stdsql.Result {
+func (o *ORM) Exec(query string, args ...interface{}) sql.Result {
 	if strings.IndexByte(query, '\'') >= 0 {
 		panic("SQL statement cannot contain single quotes!")
 	}
@@ -56,7 +56,7 @@ func (o *ORM) Exec(query string, args ...interface{}) stdsql.Result {
 	return result
 }
 
-func (o *ORM) Query(query string, args ...interface{}) *stdsql.Rows {
+func (o *ORM) Query(query string, args ...interface{}) *sql.Rows {
 	if strings.IndexByte(query, '\'') >= 0 {
 		panic("SQL statement cannot contain single quotes!")
 	}
@@ -67,7 +67,7 @@ func (o *ORM) Query(query string, args ...interface{}) *stdsql.Rows {
 	return rows
 }
 
-func (o *ORM) QueryRow(query string, args ...interface{}) *stdsql.Row {
+func (o *ORM) QueryRow(query string, args ...interface{}) *sql.Row {
 	if strings.IndexByte(query, '\'') >= 0 {
 		panic("SQL statement cannot contain single quotes!")
 	}
@@ -76,7 +76,7 @@ func (o *ORM) QueryRow(query string, args ...interface{}) *stdsql.Row {
 
 func (o *ORM) QueryOne(val interface{}, query string, args ...interface{}) bool {
 	err := o.QueryRow(query, args...).Scan(val)
-	if err == stdsql.ErrNoRows {
+	if err == sql.ErrNoRows {
 		return false
 	}
 	if err != nil {
@@ -110,7 +110,7 @@ func (o *ORM) Rollback() error {
 
 // select
 
-func fillModel(v reflect.Value, mi *ModelInfo, columns []string) []interface{} {
+func fillModel(v reflect.Value, mi *modelInfo, columns []string) []interface{} {
 	vals := make([]interface{}, 0, len(columns))
 	for _, column := range columns {
 		field := mi.GetField(column)
@@ -120,12 +120,12 @@ func fillModel(v reflect.Value, mi *ModelInfo, columns []string) []interface{} {
 	return vals
 }
 
-func (o *ORM) Select(model interface{}, sql *SQL, columns ...string) bool {
-	v, mi := ValueModelInfo(model)
+func (o *ORM) Select(model interface{}, s *SQL, columns ...string) bool {
+	mi, v := valueModelInfo(model)
 
-	sql.From(mi.Table).Columns(columns...)
+	s.From(mi.Table).Columns(columns...)
 
-	query, args := sql.ToSelect()
+	query, args := s.ToSelect()
 	rows := o.Query(query, args...)
 	defer rows.Close()
 
@@ -168,19 +168,19 @@ func (o *ORM) Select(model interface{}, sql *SQL, columns ...string) bool {
 	return true
 }
 
-func (o *ORM) Count(sql *SQL) (count int) {
-	query, args := sql.ToCount()
+func (o *ORM) Count(s *SQL) (count int) {
+	query, args := s.ToCount()
 	o.QueryOne(&count, query, args...)
 	return
 }
 
-func (o *ORM) CountMySQL(sql *SQL) (count int) {
-	query, args := sql.ToCountMySQL()
+func (o *ORM) CountMySQL(s *SQL) (count int) {
+	query, args := s.ToCountMySQL()
 	o.QueryOne(&count, query, args...)
 	return
 }
 
-func columnsDefault(mi *ModelInfo, columns ...string) []string {
+func columnsDefault(mi *modelInfo, columns ...string) []string {
 	switch len(columns) {
 	case 0:
 		columns = mi.Columns
@@ -193,7 +193,7 @@ func columnsDefault(mi *ModelInfo, columns ...string) []string {
 	return columns
 }
 
-func setModel(sql *SQL, v reflect.Value, mi *ModelInfo, skipPK bool, columns ...string) {
+func setModel(s *SQL, v reflect.Value, mi *modelInfo, skipPK bool, columns ...string) {
 	columns = columnsDefault(mi, columns...)
 	for _, column := range columns {
 		if skipPK && column == mi.PK {
@@ -204,59 +204,59 @@ func setModel(sql *SQL, v reflect.Value, mi *ModelInfo, skipPK bool, columns ...
 		if field == mi.PK && val.Int() <= 0 {
 			continue
 		}
-		sql.Set(column, val.Interface())
+		s.Set(column, val.Interface())
 	}
 }
 
-func (o *ORM) Insert(model interface{}, columns ...string) stdsql.Result {
-	v, mi := ValueModelInfo(model)
+func (o *ORM) Insert(model interface{}, columns ...string) sql.Result {
+	mi, v := valueModelInfo(model)
 
 	for field, _ := range mi.FieldsCreated {
 		v.FieldByName(field).SetInt(time.Now().Unix())
 	}
 
-	sql := o.NewSQL().From(mi.Table)
-	setModel(sql, v, mi, false, columns...)
+	s := o.NewSQL().From(mi.Table)
+	setModel(s, v, mi, false, columns...)
 
-	query, args := sql.ToInsert()
+	query, args := s.ToInsert()
 	return o.Exec(query, args...)
 }
 
-func (o *ORM) Replace(model interface{}, columns ...string) stdsql.Result {
-	v, mi := ValueModelInfo(model)
+func (o *ORM) Replace(model interface{}, columns ...string) sql.Result {
+	mi, v := valueModelInfo(model)
 
-	sql := o.NewSQL().From(mi.Table)
-	setModel(sql, v, mi, false, columns...)
+	s := o.NewSQL().From(mi.Table)
+	setModel(s, v, mi, false, columns...)
 
-	query, args := sql.ToReplace()
+	query, args := s.ToReplace()
 	return o.Exec(query, args...)
 }
 
-func (o *ORM) Update(model interface{}, sql *SQL, columns ...string) stdsql.Result {
-	v, mi := ValueModelInfo(model)
+func (o *ORM) Update(model interface{}, s *SQL, columns ...string) sql.Result {
+	mi, v := valueModelInfo(model)
 
 	for field, _ := range mi.FieldsUpdated {
 		v.FieldByName(field).SetInt(time.Now().Unix())
 	}
 
-	sql.From(mi.Table)
-	setModel(sql, v, mi, true, columns...)
+	s.From(mi.Table)
+	setModel(s, v, mi, true, columns...)
 
-	query, args := sql.ToUpdate()
+	query, args := s.ToUpdate()
 	return o.Exec(query, args...)
 }
 
-func (o *ORM) Delete(model interface{}, sql *SQL) stdsql.Result {
-	_, mi := ValueModelInfo(model)
+func (o *ORM) Delete(model interface{}, s *SQL) sql.Result {
+	mi, _ := valueModelInfo(model)
 
-	sql.From(mi.Table)
+	s.From(mi.Table)
 
-	query, args := sql.ToDelete()
+	query, args := s.ToDelete()
 	return o.Exec(query, args...)
 }
 
 func (o *ORM) batchInsertOrReplace(mode string, lineBatch int, models interface{}, columns ...string) {
-	vs, mi := ValueModelInfo(models)
+	mi, vs := valueModelInfo(models)
 
 	columns = columnsDefault(mi, columns...)
 
@@ -298,29 +298,29 @@ func (o *ORM) BatchReplace(models interface{}, columns ...string) {
 
 // quick method
 
-func whereById(model interface{}) *SQL {
-	v, mi := ValueModelInfo(model)
-	return o.NewSQL().Where(fmt.Sprintf("`%s` = ?", mi.PK), v.FieldByName(mi.GetField(mi.PK)).Interface())
+func whereById(s *SQL, model interface{}) *SQL {
+	mi, v := valueModelInfo(model)
+	return s.Where(fmt.Sprintf("`%s` = ?", mi.PK), v.FieldByName(mi.GetField(mi.PK)).Interface())
 }
 
-func (o *ORM) Add(model interface{}, columns ...string) stdsql.Result {
+func (o *ORM) Add(model interface{}, columns ...string) sql.Result {
 	return o.Insert(model, columns...)
 }
 
 func (o *ORM) Get(model interface{}, columns ...string) bool {
-	return o.Select(model, whereById(model), columns...)
+	return o.Select(model, whereById(o.NewSQL(), model), columns...)
 }
 
-func (o *ORM) Up(model interface{}, columns ...string) stdsql.Result {
-	return o.Update(model, whereById(model), columns...)
+func (o *ORM) Up(model interface{}, columns ...string) sql.Result {
+	return o.Update(model, whereById(o.NewSQL(), model), columns...)
 }
 
-func (o *ORM) Del(model interface{}) stdsql.Result {
-	return o.Delete(model, whereById(model))
+func (o *ORM) Del(model interface{}) sql.Result {
+	return o.Delete(model, whereById(o.NewSQL(), model))
 }
 
-func (o *ORM) Save(model interface{}, columns ...string) stdsql.Result {
-	v, mi := ValueModelInfo(model)
+func (o *ORM) Save(model interface{}, columns ...string) sql.Result {
+	mi, v := valueModelInfo(model)
 	if v.FieldByName(mi.GetField(mi.PK)).Int() > 0 {
 		return o.Up(model, columns...)
 	} else {
@@ -331,7 +331,7 @@ func (o *ORM) Save(model interface{}, columns ...string) stdsql.Result {
 // foreign key
 
 func (o *ORM) ForeignKey(models interface{}, foreign_key_column string, foreign_models interface{}, key_column string, columns ...string) {
-	vs, mi := ValueModelInfo(models)
+	mi, vs := valueModelInfo(models)
 
 	if vs.Len() == 0 {
 		return
@@ -359,14 +359,14 @@ func (o *ORM) ForeignKey(models interface{}, foreign_key_column string, foreign_
 		ids = append(ids, id)
 	}
 
-	sql := o.NewSQL().WhereIn(fmt.Sprintf("`%s` in (?)", key_column), ids...)
-	o.Select(foreign_models, sql, columns...)
+	s := o.NewSQL().WhereIn(fmt.Sprintf("`%s` in (?)", key_column), ids...)
+	o.Select(foreign_models, s, columns...)
 }
 
 // SQL
 
 func (o *ORM) NewSQL(table ...string) *SQL {
-	sql := NewSQL(table...)
-	sql.SetORM(o)
-	return sql
+	s := NewSQL(table...)
+	s.SetORM(o)
+	return s
 }

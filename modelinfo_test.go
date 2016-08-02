@@ -64,7 +64,7 @@ func TestField2Column(t *testing.T) {
 
 func TestNewModelInfo(t *testing.T) {
 	user := new(User)
-	result := &ModelInfo{
+	result := &modelInfo{
 		Value:    reflect.ValueOf(user).Elem(),
 		Type:     reflect.ValueOf(user).Elem().Type(),
 		Slice:    false,
@@ -85,7 +85,7 @@ func TestNewModelInfo(t *testing.T) {
 		Column2Field: map[string]string{"id": "ID", "username": "Username", "password": "Password", "reg_time": "RegTime", "reg_ip": "RegIP", "update_time": "UpdateTime", "update_ip": "UpdateIP"},
 	}
 
-	mi := NewModelInfo(user)
+	mi := newModelInfo(user)
 	if !reflect.DeepEqual(mi, result) {
 		t.Errorf("TestField2Column error: \n%#v\n%#v", mi, result)
 	}
@@ -93,7 +93,7 @@ func TestNewModelInfo(t *testing.T) {
 
 func TestNewModelInfo1_Slice(t *testing.T) {
 	user := &[]User{}
-	result := &ModelInfo{
+	result := &modelInfo{
 		Value:    reflect.ValueOf(user).Elem(),
 		Type:     reflect.ValueOf(user).Elem().Type(),
 		Slice:    true,
@@ -114,7 +114,7 @@ func TestNewModelInfo1_Slice(t *testing.T) {
 		Column2Field: map[string]string{"id": "ID", "username": "Username", "password": "Password", "reg_time": "RegTime", "reg_ip": "RegIP", "update_time": "UpdateTime", "update_ip": "UpdateIP"},
 	}
 
-	mi := NewModelInfo(user)
+	mi := newModelInfo(user)
 	if !reflect.DeepEqual(mi, result) {
 		t.Errorf("TestNewModelInfo1_Slice error: \n%#v\n%#v", mi, result)
 	}
@@ -122,7 +122,7 @@ func TestNewModelInfo1_Slice(t *testing.T) {
 
 func TestNewModelInfo_SliceElemPtr(t *testing.T) {
 	user := &[]*User{}
-	result := &ModelInfo{
+	result := &modelInfo{
 		Value:    reflect.ValueOf(user).Elem(),
 		Type:     reflect.ValueOf(user).Elem().Type(),
 		Slice:    true,
@@ -143,18 +143,18 @@ func TestNewModelInfo_SliceElemPtr(t *testing.T) {
 		Column2Field: map[string]string{"id": "ID", "username": "Username", "password": "Password", "reg_time": "RegTime", "reg_ip": "RegIP", "update_time": "UpdateTime", "update_ip": "UpdateIP"},
 	}
 
-	mi := NewModelInfo(user)
+	mi := newModelInfo(user)
 	if !reflect.DeepEqual(mi, result) {
 		t.Errorf("TestNewModelInfo_SliceElemPtr error: \n%#v\n%#v", mi, result)
 	}
 }
 
-func TestValueModelInfo(t *testing.T) {
+func TestvalueModelInfo(t *testing.T) {
 	user := &User{}
-	_, mi1 := ValueModelInfo(user)
-	_, mi2 := ValueModelInfo(user)
+	mi1, _ := valueModelInfo(user)
+	mi2, _ := valueModelInfo(user)
 
 	if mi1 != mi2 {
-		t.Errorf("TestValueModelInfo error: \n%#v\n%#v", mi1, mi2)
+		t.Errorf("TestvalueModelInfo error: \n%#v\n%#v", mi1, mi2)
 	}
 }

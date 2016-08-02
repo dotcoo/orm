@@ -36,7 +36,7 @@ func field2Column(field string) (column string) {
 	return
 }
 
-type ModelInfo struct {
+type modelInfo struct {
 	Value    reflect.Value
 	Type     reflect.Type
 	Slice    bool
@@ -57,8 +57,8 @@ type ModelInfo struct {
 	Column2Field map[string]string
 }
 
-func NewModelInfo(model interface{}, prefix ...string) *ModelInfo {
-	mi := new(ModelInfo)
+func newModelInfo(model interface{}, prefix ...string) *modelInfo {
+	mi := new(modelInfo)
 
 	mi.Value = reflect.ValueOf(model)
 	if mi.Value.Kind() != reflect.Ptr {
@@ -136,7 +136,7 @@ CONTINUE_FIELD:
 	return mi
 }
 
-func (mi *ModelInfo) GetColumn(field string) string {
+func (mi *modelInfo) GetColumn(field string) string {
 	column, exist := mi.Field2Column[field]
 	if !exist {
 		panic("field " + field + " not found!")
@@ -144,7 +144,7 @@ func (mi *ModelInfo) GetColumn(field string) string {
 	return column
 }
 
-func (mi *ModelInfo) GetField(column string) string {
+func (mi *modelInfo) GetField(column string) string {
 	field, exist := mi.Column2Field[column]
 	if !exist {
 		panic("column " + column + " not found!")
@@ -152,24 +152,24 @@ func (mi *ModelInfo) GetField(column string) string {
 	return field
 }
 
-var modelInfos map[reflect.Type]*ModelInfo = make(map[reflect.Type]*ModelInfo)
+var modelInfos map[reflect.Type]*modelInfo = make(map[reflect.Type]*modelInfo)
 
 var modelInfosMtx sync.RWMutex
 
-func SetModelInfo(t reflect.Type, mi *ModelInfo) {
+func setModelInfo(mi *modelInfo) {
 	modelInfosMtx.Lock()
-	modelInfos[t] = mi
+	modelInfos[mi.Type] = mi
 	modelInfosMtx.Unlock()
 }
 
-func GetModelInfo(t reflect.Type) (*ModelInfo, bool) {
+func getModelInfo(t reflect.Type) (*modelInfo, bool) {
 	modelInfosMtx.RLock()
 	mi, exist := modelInfos[t]
 	modelInfosMtx.RUnlock()
 	return mi, exist
 }
 
-func ValueModelInfo(model interface{}) (reflect.Value, *ModelInfo) {
+func valueModelInfo(model interface{}) (*modelInfo, reflect.Value) {
 	v := reflect.ValueOf(model)
 	if v.Kind() != reflect.Ptr {
 		panic("register model must be a pointer!")
@@ -177,10 +177,10 @@ func ValueModelInfo(model interface{}) (reflect.Value, *ModelInfo) {
 	v = reflect.Indirect(v)
 	t := v.Type()
 
-	mi, exist := GetModelInfo(t)
+	mi, exist := getModelInfo(t)
 	if !exist {
-		mi = NewModelInfo(model)
-		SetModelInfo(mi.Type, mi)
+		mi = newModelInfo(model)
+		setModelInfo(mi)
 	}
-	return v, mi
+	return mi, v
 }

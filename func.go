@@ -5,30 +5,26 @@
 package orm
 
 import (
-	stdsql "database/sql"
+	"database/sql"
 )
 
 // Default ORM
 
 var DefaultORM *ORM = NewORM(nil)
 
-func SetDB(db *stdsql.DB) {
+func SetDB(db *sql.DB) {
 	DefaultORM.DB = db
 }
 
-func GetDB() *stdsql.DB {
-	return DefaultORM.DB
-}
-
-func Exec(query string, args ...interface{}) stdsql.Result {
+func Exec(query string, args ...interface{}) sql.Result {
 	return DefaultORM.Exec(query, args...)
 }
 
-func Query(query string, args ...interface{}) *stdsql.Rows {
+func Query(query string, args ...interface{}) *sql.Rows {
 	return DefaultORM.Query(query, args...)
 }
 
-func QueryRow(query string, args ...interface{}) *stdsql.Row {
+func QueryRow(query string, args ...interface{}) *sql.Row {
 	return DefaultORM.QueryRow(query, args...)
 }
 
@@ -36,44 +32,32 @@ func QueryOne(val interface{}, query string, args ...interface{}) bool {
 	return DefaultORM.QueryOne(val, query, args...)
 }
 
-func Begin() (*ORM, error) {
-	return DefaultORM.Begin()
+func Select(model interface{}, s *SQL, columns ...string) bool {
+	return DefaultORM.Select(model, s, columns...)
 }
 
-func Commit() error {
-	return DefaultORM.Commit()
+func Count(s *SQL) int {
+	return DefaultORM.Count(s)
 }
 
-func Rollback() error {
-	return DefaultORM.Rollback()
+func CountMySQL(s *SQL) int {
+	return DefaultORM.CountMySQL(s)
 }
 
-func Select(model interface{}, sql *SQL, columns ...string) bool {
-	return DefaultORM.Select(model, sql, columns...)
-}
-
-func Count(sql *SQL) int {
-	return DefaultORM.Count(sql)
-}
-
-func CountMySQL(sql *SQL) int {
-	return DefaultORM.CountMySQL(sql)
-}
-
-func Insert(model interface{}, columns ...string) stdsql.Result {
+func Insert(model interface{}, columns ...string) sql.Result {
 	return DefaultORM.Insert(model, columns...)
 }
 
-func Replace(model interface{}, columns ...string) stdsql.Result {
+func Replace(model interface{}, columns ...string) sql.Result {
 	return DefaultORM.Replace(model, columns...)
 }
 
-func Update(model interface{}, sql *SQL, columns ...string) stdsql.Result {
-	return DefaultORM.Update(model, sql, columns...)
+func Update(model interface{}, s *SQL, columns ...string) sql.Result {
+	return DefaultORM.Update(model, s, columns...)
 }
 
-func Delete(model interface{}, sql *SQL) stdsql.Result {
-	return DefaultORM.Delete(model, sql)
+func Delete(model interface{}, s *SQL) sql.Result {
+	return DefaultORM.Delete(model, s)
 }
 
 func BatchInsert(models interface{}, columns ...string) {
@@ -84,7 +68,7 @@ func BatchReplace(models interface{}, columns ...string) {
 	DefaultORM.BatchReplace(models, columns...)
 }
 
-func Add(model interface{}, columns ...string) stdsql.Result {
+func Add(model interface{}, columns ...string) sql.Result {
 	return DefaultORM.Add(model, columns...)
 }
 
@@ -92,15 +76,15 @@ func Get(model interface{}, columns ...string) bool {
 	return DefaultORM.Get(model, columns...)
 }
 
-func Up(model interface{}, columns ...string) stdsql.Result {
+func Up(model interface{}, columns ...string) sql.Result {
 	return DefaultORM.Up(model, columns...)
 }
 
-func Del(model interface{}) stdsql.Result {
+func Del(model interface{}) sql.Result {
 	return DefaultORM.Del(model)
 }
 
-func Save(model interface{}, columns ...string) stdsql.Result {
+func Save(model interface{}, columns ...string) sql.Result {
 	return DefaultORM.Save(model, columns...)
 }
 

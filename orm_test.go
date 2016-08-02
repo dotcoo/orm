@@ -5,7 +5,7 @@
 package orm
 
 import (
-	stdsql "database/sql"
+	"database/sql"
 	"fmt"
 	"testing"
 
@@ -49,7 +49,7 @@ var init_sqls []string = []string{
 }
 
 func init() {
-	db, err := stdsql.Open("mysql", "root:123456@/mingo?charset=utf8")
+	db, err := sql.Open("mysql", "root:123456@/mingo?charset=utf8")
 	if err != nil {
 		panic(err)
 	}
@@ -121,11 +121,11 @@ func TestOrmSelect(t *testing.T) {
 
 func testOrmCount(t *testing.T) {
 	blogs := make([]Blog, 0, 100)
-	sql := o.NewSQL().Where("id > ?", 10).Order("id").Page(3, 10)
-	o.Select(&blogs, sql)
+	s := o.NewSQL().Where("id > ?", 10).Order("id").Page(3, 10)
+	o.Select(&blogs, s)
 	t.Log(blogs)
 
-	count := sql.Count()
+	count := s.Count()
 	t.Log(count)
 }
 
@@ -143,11 +143,11 @@ func TestOrmReplace(t *testing.T) {
 
 func testOrmCountMySQL(t *testing.T) {
 	blogs := make([]Blog, 0, 100)
-	sql := o.NewSQL().CalcFoundRows().Where("id > ?", 0).Order("id").Page(3, 10)
-	o.Select(&blogs, sql)
+	s := o.NewSQL().CalcFoundRows().Where("id > ?", 0).Order("id").Page(3, 10)
+	o.Select(&blogs, s)
 	t.Log(blogs)
 
-	count := sql.CountMySQL()
+	count := s.CountMySQL()
 	t.Log(count)
 }
 
@@ -264,8 +264,8 @@ func TestOrmSave(t *testing.T) {
 
 func TestOrmForeignKey(t *testing.T) {
 	blogs := make([]Blog, 0, 100)
-	sql := o.NewSQL().Where("id > ?", 10).Order("id").Page(3, 10)
-	o.Select(&blogs, sql)
+	s := o.NewSQL().Where("id > ?", 10).Order("id").Page(3, 10)
+	o.Select(&blogs, s)
 	t.Log(blogs)
 
 	categorys := make([]Category, 0, 20)
@@ -283,9 +283,9 @@ func TestOrmTransaction(t *testing.T) {
 
 	u := new(User)
 	u.ID = 1
-	sql := otx.NewSQL().Where("id = ?", u.ID).ForUpdate()
+	s := otx.NewSQL().Where("id = ?", u.ID).ForUpdate()
 
-	if !o.Select(u, sql) {
+	if !o.Select(u, s) {
 		panic("user 1 not found!")
 	}
 
