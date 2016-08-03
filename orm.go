@@ -49,6 +49,9 @@ func (o *ORM) getTxOrDB() dber {
 	if o.db != nil {
 		return o.db
 	}
+	if DefaultORM.db != nil {
+		return DefaultORM.db
+	}
 	panic("DB is nil!")
 }
 
@@ -174,17 +177,19 @@ func (o *ORM) Select(model interface{}, s *SQL, columns ...string) bool {
 				panic(err)
 			}
 
+			field := mi.GetField(columns[0])
+
 			if mi.ValPtr {
 				if mi.KeyPtr {
-					v.SetMapIndex(ev.Elem().FieldByName(mi.GetField(columns[0])).Addr(), ev)
+					v.SetMapIndex(ev.Elem().FieldByName(field).Addr(), ev)
 				} else {
-					v.SetMapIndex(ev.Elem().FieldByName(mi.GetField(columns[0])), ev)
+					v.SetMapIndex(ev.Elem().FieldByName(field), ev)
 				}
 			} else {
 				if mi.KeyPtr {
-					v.SetMapIndex(ev.Elem().FieldByName(mi.GetField(columns[0])).Addr(), ev.Elem())
+					v.SetMapIndex(ev.Elem().FieldByName(field).Addr(), ev.Elem())
 				} else {
-					v.SetMapIndex(ev.Elem().FieldByName(mi.GetField(columns[0])), ev.Elem())
+					v.SetMapIndex(ev.Elem().FieldByName(field), ev.Elem())
 				}
 			}
 		}

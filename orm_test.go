@@ -129,6 +129,16 @@ func testOrmCount(t *testing.T) {
 	t.Log(count)
 }
 
+func testOrmCountMySQL(t *testing.T) {
+	blogs := make([]Blog, 0, 100)
+	s := o.NewSQL().CalcFoundRows().Where("id > ?", 0).Order("id").Page(3, 10)
+	o.Select(&blogs, s)
+	t.Log(blogs)
+
+	count := s.CountMySQL()
+	t.Log(count)
+}
+
 func TestOrmReplace(t *testing.T) {
 	u := new(User)
 	u.ID = 1
@@ -138,16 +148,6 @@ func TestOrmReplace(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
-	t.Log(count)
-}
-
-func testOrmCountMySQL(t *testing.T) {
-	blogs := make([]Blog, 0, 100)
-	s := o.NewSQL().CalcFoundRows().Where("id > ?", 0).Order("id").Page(3, 10)
-	o.Select(&blogs, s)
-	t.Log(blogs)
-
-	count := s.CountMySQL()
 	t.Log(count)
 }
 
