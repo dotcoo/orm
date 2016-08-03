@@ -20,27 +20,34 @@ type dber interface {
 }
 
 type ORM struct {
-	DB       *sql.DB
-	Tx       *sql.Tx
-	BatchRow int
+	db               *sql.DB
+	tx               *sql.Tx
+	modelInfoManager *ModelInfoManager
+	BatchRow         int
 }
+
+var DefaultORM *ORM = NewORM(nil)
 
 func NewORM(db *sql.DB) *ORM {
 	o := new(ORM)
-	o.DB = db
-	o.Tx = nil
+	o.db = db
+	o.tx = nil
 	o.BatchRow = 100
 	return o
+}
+
+func (o *ORM) SetPrefix(prefix string) {
+	o.Manager().SetPrefix(prefix)
 }
 
 // query
 
 func (o *ORM) getTxOrDB() dber {
-	if o.Tx != nil {
-		return o.Tx
+	if o.tx != nil {
+		return o.tx
 	}
-	if o.DB != nil {
-		return o.DB
+	if o.db != nil {
+		return o.db
 	}
 	panic("DB is nil!")
 }
@@ -88,8 +95,8 @@ func (o *ORM) QueryOne(val interface{}, query string, args ...interface{}) bool 
 // transaction
 
 func (o *ORM) Begin() (otx *ORM, err error) {
-	otx = NewORM(o.DB)
-	otx.Tx, err = o.DB.Begin()
+	otx = NewORM(o.db)
+	otx.tx, err = o.db.Begin()
 	if err != nil {
 		return nil, err
 	}
@@ -97,20 +104,28 @@ func (o *ORM) Begin() (otx *ORM, err error) {
 }
 
 func (o *ORM) Commit() error {
-	tx := o.Tx
-	o.Tx = nil
+	tx := o.tx
+	o.tx = nil
 	return tx.Commit()
 }
 
 func (o *ORM) Rollback() error {
-	tx := o.Tx
-	o.Tx = nil
+	tx := o.tx
+	o.tx = nil
 	return tx.Rollback()
 }
 
 // select
 
-func fillModel(v reflect.Value, mi *modelInfo, columns []string) []interface{} {
+func (o *ORM) Manager() *ModelInfoManager {
+	if o.modelInfoManager != nil {
+		return o.modelInfoManager
+	}
+
+	return DefaultModelInfoManager
+}
+
+func fillModel(v reflect.Value, mi *ModelInfo, columns []string) []interface{} {
 	vals := make([]interface{}, 0, len(columns))
 	for _, column := range columns {
 		field := mi.GetField(column)
@@ -121,7 +136,7 @@ func fillModel(v reflect.Value, mi *modelInfo, columns []string) []interface{} {
 }
 
 func (o *ORM) Select(model interface{}, s *SQL, columns ...string) bool {
-	mi, v := valueModelInfo(model)
+	mi, v := o.Manager().ValueOf(model)
 
 	s.From(mi.Table).Columns(columns...)
 
@@ -134,22 +149,46 @@ func (o *ORM) Select(model interface{}, s *SQL, columns ...string) bool {
 		panic(err)
 	}
 
-	if mi.Slice {
+	switch {
+	case mi.Slice:
 		for rows.Next() {
-			ev := reflect.New(mi.ElemType)
+			ev := reflect.New(mi.ValType)
 			vals := fillModel(ev.Elem(), mi, columns)
 			err = rows.Scan(vals...)
 			if err != nil {
 				panic(err)
 			}
 
-			if mi.ElemPtr {
+			if mi.ValPtr {
 				v.Set(reflect.Append(v, ev))
 			} else {
 				v.Set(reflect.Append(v, ev.Elem()))
 			}
 		}
-	} else {
+	case mi.Map:
+		for rows.Next() {
+			ev := reflect.New(mi.ValType)
+			vals := fillModel(ev.Elem(), mi, columns)
+			err = rows.Scan(vals...)
+			if err != nil {
+				panic(err)
+			}
+
+			if mi.ValPtr {
+				if mi.KeyPtr {
+					v.SetMapIndex(ev.Elem().FieldByName(mi.GetField(columns[0])).Addr(), ev)
+				} else {
+					v.SetMapIndex(ev.Elem().FieldByName(mi.GetField(columns[0])), ev)
+				}
+			} else {
+				if mi.KeyPtr {
+					v.SetMapIndex(ev.Elem().FieldByName(mi.GetField(columns[0])).Addr(), ev.Elem())
+				} else {
+					v.SetMapIndex(ev.Elem().FieldByName(mi.GetField(columns[0])), ev.Elem())
+				}
+			}
+		}
+	default:
 		if !rows.Next() {
 			return false
 		}
@@ -180,20 +219,24 @@ func (o *ORM) CountMySQL(s *SQL) (count int) {
 	return
 }
 
-func columnsDefault(mi *modelInfo, columns ...string) []string {
+func columnsDefault(mi *ModelInfo, columns ...string) []string {
 	switch len(columns) {
 	case 0:
 		columns = mi.Columns
 	case 1:
-		columns = strings.Split(columns[0], ",")
-		for i, column := range columns {
-			columns[i] = strings.TrimSpace(column)
+		if columns[0] == "*" {
+			columns = mi.Columns
+		} else {
+			columns = strings.Split(columns[0], ",")
+			for i, column := range columns {
+				columns[i] = strings.TrimSpace(column)
+			}
 		}
 	}
 	return columns
 }
 
-func setModel(s *SQL, v reflect.Value, mi *modelInfo, skipPK bool, columns ...string) {
+func setModel(s *SQL, v reflect.Value, mi *ModelInfo, skipPK bool, columns ...string) {
 	columns = columnsDefault(mi, columns...)
 	for _, column := range columns {
 		if skipPK && column == mi.PK {
@@ -209,9 +252,9 @@ func setModel(s *SQL, v reflect.Value, mi *modelInfo, skipPK bool, columns ...st
 }
 
 func (o *ORM) Insert(model interface{}, columns ...string) sql.Result {
-	mi, v := valueModelInfo(model)
+	mi, v := o.Manager().ValueOf(model)
 
-	for field, _ := range mi.FieldsCreated {
+	for _, field := range mi.FieldsCreated {
 		v.FieldByName(field).SetInt(time.Now().Unix())
 	}
 
@@ -223,7 +266,7 @@ func (o *ORM) Insert(model interface{}, columns ...string) sql.Result {
 }
 
 func (o *ORM) Replace(model interface{}, columns ...string) sql.Result {
-	mi, v := valueModelInfo(model)
+	mi, v := o.Manager().ValueOf(model)
 
 	s := o.NewSQL().From(mi.Table)
 	setModel(s, v, mi, false, columns...)
@@ -233,9 +276,13 @@ func (o *ORM) Replace(model interface{}, columns ...string) sql.Result {
 }
 
 func (o *ORM) Update(model interface{}, s *SQL, columns ...string) sql.Result {
-	mi, v := valueModelInfo(model)
+	if len(s.sets) == 0 && len(columns) == 0 {
+		panic("Update columns cannot be empty! if update all columns, please input \"*\".")
+	}
 
-	for field, _ := range mi.FieldsUpdated {
+	mi, v := o.Manager().ValueOf(model)
+
+	for _, field := range mi.FieldsUpdated {
 		v.FieldByName(field).SetInt(time.Now().Unix())
 	}
 
@@ -247,7 +294,7 @@ func (o *ORM) Update(model interface{}, s *SQL, columns ...string) sql.Result {
 }
 
 func (o *ORM) Delete(model interface{}, s *SQL) sql.Result {
-	mi, _ := valueModelInfo(model)
+	mi, _ := o.Manager().ValueOf(model)
 
 	s.From(mi.Table)
 
@@ -256,7 +303,7 @@ func (o *ORM) Delete(model interface{}, s *SQL) sql.Result {
 }
 
 func (o *ORM) batchInsertOrReplace(mode string, lineBatch int, models interface{}, columns ...string) {
-	mi, vs := valueModelInfo(models)
+	mi, vs := o.Manager().ValueOf(models)
 
 	columns = columnsDefault(mi, columns...)
 
@@ -269,7 +316,7 @@ func (o *ORM) batchInsertOrReplace(mode string, lineBatch int, models interface{
 	column := strings.Join(columns, "`,`")
 	value := ",(?" + strings.Repeat(",?", len(columns)-1) + ")"
 
-	args := make([]interface{}, 0, 100)
+	args := make([]interface{}, 0, lineBatch)
 	models_len := vs.Len()
 	for i := 0; i < models_len; i++ {
 		v := reflect.Indirect(vs.Index(i))
@@ -279,7 +326,7 @@ func (o *ORM) batchInsertOrReplace(mode string, lineBatch int, models interface{
 		if (i+1)%lineBatch == 0 {
 			query := fmt.Sprintf("%s INTO `%s` (`%s`) VALUES %s%s", mode, mi.Table, column, value[1:], strings.Repeat(value, lineBatch-1))
 			o.Exec(query, args...)
-			args = args[0:0:100]
+			args = args[0:0:lineBatch]
 		}
 	}
 	if models_len%lineBatch > 0 {
@@ -298,9 +345,9 @@ func (o *ORM) BatchReplace(models interface{}, columns ...string) {
 
 // quick method
 
-func whereById(s *SQL, model interface{}) *SQL {
-	mi, v := valueModelInfo(model)
-	return s.Where(fmt.Sprintf("`%s` = ?", mi.PK), v.FieldByName(mi.GetField(mi.PK)).Interface())
+func whereById(o *ORM, model interface{}) *SQL {
+	mi, v := o.Manager().ValueOf(model)
+	return o.NewSQL().Where(fmt.Sprintf("`%s` = ?", mi.PK), v.FieldByName(mi.GetField(mi.PK)).Interface())
 }
 
 func (o *ORM) Add(model interface{}, columns ...string) sql.Result {
@@ -308,19 +355,19 @@ func (o *ORM) Add(model interface{}, columns ...string) sql.Result {
 }
 
 func (o *ORM) Get(model interface{}, columns ...string) bool {
-	return o.Select(model, whereById(o.NewSQL(), model), columns...)
+	return o.Select(model, whereById(o, model), columns...)
 }
 
 func (o *ORM) Up(model interface{}, columns ...string) sql.Result {
-	return o.Update(model, whereById(o.NewSQL(), model), columns...)
+	return o.Update(model, whereById(o, model), columns...)
 }
 
 func (o *ORM) Del(model interface{}) sql.Result {
-	return o.Delete(model, whereById(o.NewSQL(), model))
+	return o.Delete(model, whereById(o, model))
 }
 
 func (o *ORM) Save(model interface{}, columns ...string) sql.Result {
-	mi, v := valueModelInfo(model)
+	mi, v := o.Manager().ValueOf(model)
 	if v.FieldByName(mi.GetField(mi.PK)).Int() > 0 {
 		return o.Up(model, columns...)
 	} else {
@@ -330,15 +377,15 @@ func (o *ORM) Save(model interface{}, columns ...string) sql.Result {
 
 // foreign key
 
-func (o *ORM) ForeignKey(models interface{}, foreign_key_column string, foreign_models interface{}, key_column string, columns ...string) {
-	mi, vs := valueModelInfo(models)
+func (o *ORM) ForeignKey(sources interface{}, fk_column string, models interface{}, pk_column string, columns ...string) {
+	mi, vs := o.Manager().ValueOf(sources)
 
 	if vs.Len() == 0 {
 		return
 	}
 
-	field := mi.GetField(foreign_key_column)
-	sf, exist := mi.ElemType.FieldByName(field)
+	field := mi.GetField(fk_column)
+	sf, exist := mi.ValType.FieldByName(field)
 	if !exist {
 		panic("field " + field + " not found!")
 	}
@@ -359,8 +406,8 @@ func (o *ORM) ForeignKey(models interface{}, foreign_key_column string, foreign_
 		ids = append(ids, id)
 	}
 
-	s := o.NewSQL().WhereIn(fmt.Sprintf("`%s` in (?)", key_column), ids...)
-	o.Select(foreign_models, s, columns...)
+	s := o.NewSQL().WhereIn(fmt.Sprintf("`%s` in (?)", pk_column), ids...)
+	o.Select(models, s, columns...)
 }
 
 // SQL

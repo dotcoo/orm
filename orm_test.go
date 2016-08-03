@@ -95,7 +95,7 @@ func TestOrmUpdate(t *testing.T) {
 	u.ID = 1
 	u.Username = "dotcoo"
 	u.Password = "dotcoo123"
-	count, err := o.Update(u, o.NewSQL().Where("id = ?", u.ID)).RowsAffected()
+	count, err := o.Update(u, o.NewSQL().Where("id = ?", u.ID), "username, password").RowsAffected()
 	if err != nil {
 		panic(err)
 	}
@@ -213,7 +213,7 @@ func TestOrmUp(t *testing.T) {
 	u.ID = 1
 	u.Username = "dotcoo"
 	u.Password = "dotcoopwd"
-	n, err := o.Up(u).RowsAffected()
+	n, err := o.Up(u, "username, password").RowsAffected()
 	t.Log(u, n, err)
 }
 
@@ -240,7 +240,7 @@ func TestOrmSave(t *testing.T) {
 	u.ID = 1
 	u.Username = "dotcoo"
 	u.Password = "dotcoopwd2"
-	result = o.Save(u)
+	result = o.Save(u, "*")
 	id, id_err = result.LastInsertId()
 	row, row_err = result.RowsAffected()
 	t.Log(u, id, id_err, row, row_err)
@@ -251,7 +251,7 @@ func TestOrmSave(t *testing.T) {
 	t.Log(u2, exist)
 
 	u.Password = "dotcoopwd3"
-	result = o.Save(u)
+	result = o.Save(u, "*")
 	id, id_err = result.LastInsertId()
 	row, row_err = result.RowsAffected()
 	t.Log(u, id, id_err, row, row_err)
@@ -290,7 +290,7 @@ func TestOrmTransaction(t *testing.T) {
 	}
 
 	u.Password = "haha"
-	otx.Up(u)
+	otx.Up(u, "password")
 
 	err = otx.Commit()
 	if err != nil {

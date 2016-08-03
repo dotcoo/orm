@@ -8,12 +8,14 @@ import (
 	"database/sql"
 )
 
-// Default ORM
-
-var DefaultORM *ORM = NewORM(nil)
+// default ORM method
 
 func SetDB(db *sql.DB) {
-	DefaultORM.DB = db
+	DefaultORM.db = db
+}
+
+func SetPrefix(prefix string) {
+	DefaultORM.Manager().SetPrefix(prefix)
 }
 
 func Exec(query string, args ...interface{}) sql.Result {
@@ -88,6 +90,6 @@ func Save(model interface{}, columns ...string) sql.Result {
 	return DefaultORM.Save(model, columns...)
 }
 
-func ForeignKey(models interface{}, foreign_key_column string, foreign_models interface{}, key_column string, columns ...string) {
-	DefaultORM.ForeignKey(models, foreign_key_column, foreign_models, key_column, columns...)
+func ForeignKey(sources interface{}, fk_column string, models interface{}, pk_column string, columns ...string) {
+	DefaultORM.ForeignKey(sources, fk_column, models, pk_column, columns...)
 }

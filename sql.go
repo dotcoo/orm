@@ -98,24 +98,24 @@ func (s *SQL) Table(table string, alias ...string) *SQL {
 
 func (s *SQL) From(table string, alias ...string) *SQL {
 	if len(alias) == 0 {
-		s.table = fmt.Sprintf("`%s`", table)
+		s.table = fmt.Sprintf("%s", table)
 	} else {
-		s.table = fmt.Sprintf("`%s` AS `%s`", table, alias[0])
+		s.table = fmt.Sprintf("%s AS %s", table, alias[0])
 	}
 	return s
 }
 
 func (s *SQL) Set(col string, val interface{}) *SQL {
-	s.sets = append(s.sets, fmt.Sprintf("`%s` = ?", col))
+	s.sets = append(s.sets, fmt.Sprintf("%s = ?", col))
 	s.setsArgs = append(s.setsArgs, val)
 	return s
 }
 
 func (s *SQL) Join(table, alias, cond string) *SQL {
 	if alias == "" {
-		s.joins = append(s.joins, fmt.Sprintf("`%s` ON %s", table, cond))
+		s.joins = append(s.joins, fmt.Sprintf("%s ON %s", table, cond))
 	} else {
-		s.joins = append(s.joins, fmt.Sprintf("`%s` AS `%s` ON %s", table, alias, cond))
+		s.joins = append(s.joins, fmt.Sprintf("%s AS %s ON %s", table, alias, cond))
 	}
 	return s
 }
@@ -173,7 +173,7 @@ func (s *SQL) LockInShareMode() *SQL {
 
 func (s *SQL) SetMap(data map[string]interface{}) *SQL {
 	for col, val := range data {
-		s.sets = append(s.sets, fmt.Sprintf("`%s` = ?", col))
+		s.sets = append(s.sets, fmt.Sprintf("%s = ?", col))
 		s.setsArgs = append(s.setsArgs, val)
 	}
 	return s
@@ -186,13 +186,13 @@ func (s *SQL) Page(page, pagesize int) *SQL {
 }
 
 func (s *SQL) Plus(col string, val int) *SQL {
-	s.sets = append(s.sets, fmt.Sprintf("`%s` = `%s` + ?", col, col))
+	s.sets = append(s.sets, fmt.Sprintf("%s = %s + ?", col, col))
 	s.setsArgs = append(s.setsArgs, val)
 	return s
 }
 
 func (s *SQL) Incr(col string, val int) *SQL {
-	s.sets = append(s.sets, fmt.Sprintf("`%s` = last_insert_id(`%s` + ?)", col, col))
+	s.sets = append(s.sets, fmt.Sprintf("%s = last_insert_id(%s + ?)", col, col))
 	s.setsArgs = append(s.setsArgs, val)
 	return s
 }

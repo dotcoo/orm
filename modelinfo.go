@@ -36,19 +36,23 @@ func field2Column(field string) (column string) {
 	return
 }
 
-type modelInfo struct {
-	Value    reflect.Value
-	Type     reflect.Type
-	Slice    bool
-	ElemPtr  bool
-	ElemType reflect.Type
+type ModelInfo struct {
+	Value reflect.Value
+	Type  reflect.Type
+
+	Map     bool
+	Slice   bool
+	KeyPtr  bool
+	KeyType reflect.Type
+	ValPtr  bool
+	ValType reflect.Type
 
 	ModelType reflect.Type
 
 	Fields        []string
 	Field2Column  map[string]string
-	FieldsCreated map[string]bool
-	FieldsUpdated map[string]bool
+	FieldsCreated []string
+	FieldsUpdated []string
 
 	Table string
 	PK    string
@@ -57,8 +61,8 @@ type modelInfo struct {
 	Column2Field map[string]string
 }
 
-func newModelInfo(model interface{}, prefix ...string) *modelInfo {
-	mi := new(modelInfo)
+func NewModelInfo(model interface{}, prefix, table string) *ModelInfo {
+	mi := new(ModelInfo)
 
 	mi.Value = reflect.ValueOf(model)
 	if mi.Value.Kind() != reflect.Ptr {
@@ -67,38 +71,61 @@ func newModelInfo(model interface{}, prefix ...string) *modelInfo {
 	mi.Value = reflect.Indirect(mi.Value)
 
 	mi.Type = mi.Value.Type()
-	if mi.Type.Kind() != reflect.Struct && mi.Type.Kind() != reflect.Slice {
-		panic("register model must be a pointer struct or pointer slice!")
+	if mi.Type.Kind() != reflect.Struct && mi.Type.Kind() != reflect.Slice && mi.Type.Kind() != reflect.Map {
+		panic("register model must be a pointer struct or pointer slice! or pointer map")
 	}
 
 	mi.ModelType = mi.Type
+
 	if mi.Value.Kind() == reflect.Slice {
 		mi.Slice = true
-		mi.ElemType = mi.Type.Elem()
-		if mi.ElemType.Kind() == reflect.Ptr {
-			mi.ElemPtr = true
-			mi.ElemType = mi.ElemType.Elem()
+
+		mi.ValType = mi.Type.Elem()
+		if mi.ValType.Kind() == reflect.Ptr {
+			mi.ValPtr = true
+			mi.ValType = mi.ValType.Elem()
 		}
-		if mi.ElemType.Kind() != reflect.Struct {
+		if mi.ValType.Kind() != reflect.Struct {
 			panic("register model slice element must be a struct or pointer struct!")
 		}
-		mi.ModelType = mi.ElemType
+
+		mi.ModelType = mi.ValType
+	}
+
+	if mi.Value.Kind() == reflect.Map {
+		mi.Map = true
+
+		mi.KeyType = mi.Type.Key()
+		if mi.KeyType.Kind() == reflect.Ptr {
+			mi.KeyPtr = true
+			mi.KeyType = mi.KeyType.Elem()
+		}
+		if mi.KeyType.Kind() > reflect.Uint64 && mi.KeyType.Kind() != reflect.String {
+			panic("register model map key must be a int or string!")
+		}
+
+		mi.ValType = mi.Type.Elem()
+		if mi.ValType.Kind() == reflect.Ptr {
+			mi.ValPtr = true
+			mi.ValType = mi.ValType.Elem()
+		}
+		if mi.ValType.Kind() != reflect.Struct {
+			panic("register model map element must be a struct or pointer struct!")
+		}
+
+		mi.ModelType = mi.ValType
 	}
 
 	mi.Fields = make([]string, 0, mi.ModelType.NumField())
 	mi.Field2Column = make(map[string]string)
-	mi.FieldsCreated = make(map[string]bool)
-	mi.FieldsUpdated = make(map[string]bool)
+	mi.FieldsCreated = make([]string, 0, 10)
+	mi.FieldsUpdated = make([]string, 0, 10)
 
-	n := len(prefix)
-	switch {
-	case n >= 2:
-		mi.Table = prefix[0] + prefix[1]
-	case n == 1:
-		mi.Table = prefix[0] + field2Column(mi.ModelType.Name())
-	default:
-		mi.Table = field2Column(mi.ModelType.Name())
+	if table == "" {
+		table = field2Column(mi.ModelType.Name())
 	}
+
+	mi.Table = prefix + table
 	mi.PK = "id"
 
 	mi.Columns = make([]string, 0, mi.ModelType.NumField())
@@ -119,9 +146,9 @@ CONTINUE_FIELD:
 			case "pk":
 				mi.PK = column
 			case "created":
-				mi.FieldsCreated[field] = true
+				mi.FieldsCreated = append(mi.FieldsCreated, field)
 			case "updated":
-				mi.FieldsUpdated[field] = true
+				mi.FieldsUpdated = append(mi.FieldsUpdated, field)
 			default:
 				column = s
 			}
@@ -136,40 +163,81 @@ CONTINUE_FIELD:
 	return mi
 }
 
-func (mi *modelInfo) GetColumn(field string) string {
-	column, exist := mi.Field2Column[field]
-	if !exist {
-		panic("field " + field + " not found!")
+func (mi *ModelInfo) GetColumn(field string) string {
+	if field == "" {
+		panic("field cannot be null string")
 	}
-	return column
-}
-
-func (mi *modelInfo) GetField(column string) string {
-	field, exist := mi.Column2Field[column]
-	if !exist {
-		panic("column " + column + " not found!")
+	if field[0] >= 'A' && field[0] <= 'Z' {
+		column, exist := mi.Field2Column[field]
+		if !exist {
+			panic("field " + field + " not found!")
+		}
+		return column
+	} else {
+		_, exist := mi.Column2Field[field]
+		if !exist {
+			panic("field " + field + " not found!")
+		}
+		return field
 	}
-	return field
 }
 
-var modelInfos map[reflect.Type]*modelInfo = make(map[reflect.Type]*modelInfo)
-
-var modelInfosMtx sync.RWMutex
-
-func setModelInfo(mi *modelInfo) {
-	modelInfosMtx.Lock()
-	modelInfos[mi.Type] = mi
-	modelInfosMtx.Unlock()
+func (mi *ModelInfo) GetField(column string) string {
+	if column == "" {
+		panic("column cannot be null string")
+	}
+	if column[0] >= 'a' && column[0] <= 'z' {
+		field, exist := mi.Column2Field[column]
+		if !exist {
+			panic("column " + column + " not found!")
+		}
+		return field
+	} else {
+		_, exist := mi.Field2Column[column]
+		if !exist {
+			panic("column " + column + " not found!")
+		}
+		return column
+	}
 }
 
-func getModelInfo(t reflect.Type) (*modelInfo, bool) {
-	modelInfosMtx.RLock()
-	mi, exist := modelInfos[t]
-	modelInfosMtx.RUnlock()
+type ModelInfoManager struct {
+	modelInfos map[reflect.Type]*ModelInfo
+	mtx        sync.RWMutex
+	prefix     string
+}
+
+var DefaultModelInfoManager *ModelInfoManager = NewModelInfoManager()
+
+func NewModelInfoManager() *ModelInfoManager {
+	m := new(ModelInfoManager)
+	m.modelInfos = make(map[reflect.Type]*ModelInfo)
+	return m
+}
+
+func (m *ModelInfoManager) SetPrefix(prefix string) {
+	m.prefix = prefix
+}
+
+func (m *ModelInfoManager) Set(mi *ModelInfo) {
+	m.mtx.Lock()
+	for _, i := range m.modelInfos {
+		if i.ModelType == mi.ModelType {
+			i.Table = mi.Table
+		}
+	}
+	m.modelInfos[mi.Type] = mi
+	m.mtx.Unlock()
+}
+
+func (m *ModelInfoManager) Get(t reflect.Type) (*ModelInfo, bool) {
+	m.mtx.RLock()
+	mi, exist := m.modelInfos[t]
+	m.mtx.RUnlock()
 	return mi, exist
 }
 
-func valueModelInfo(model interface{}) (*modelInfo, reflect.Value) {
+func (m *ModelInfoManager) ValueOf(model interface{}) (*ModelInfo, reflect.Value) {
 	v := reflect.ValueOf(model)
 	if v.Kind() != reflect.Ptr {
 		panic("register model must be a pointer!")
@@ -177,10 +245,10 @@ func valueModelInfo(model interface{}) (*modelInfo, reflect.Value) {
 	v = reflect.Indirect(v)
 	t := v.Type()
 
-	mi, exist := getModelInfo(t)
+	mi, exist := m.Get(t)
 	if !exist {
-		mi = newModelInfo(model)
-		setModelInfo(mi)
+		mi = NewModelInfo(model, m.prefix, "")
+		m.Set(mi)
 	}
 	return mi, v
 }
