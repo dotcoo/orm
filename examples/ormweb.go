@@ -50,14 +50,14 @@ var init_sqls []string = []string{
 }
 
 type User struct {
-	ID          int64 `orm:"pk"`
-	Username    string
-	Password    string
-	RegTime     int64 `orm:"created"`
-	RegIP       uint32
-	UpdateTime  int64 `orm:"updated"`
-	UpdateIP    uint32
-	OtherField  string `orm:"_"`
+	ID         int64 `orm:"pk"`
+	Username   string
+	Password   string
+	RegTime    int64 `orm:"created"`
+	RegIP      uint32
+	UpdateTime int64 `orm:"updated"`
+	UpdateIP   uint32
+	OtherField string `orm:"_"`
 }
 
 type Category struct {

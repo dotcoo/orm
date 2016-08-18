@@ -189,7 +189,7 @@ func (o *ORM) Del(model interface{}) sql.Result {
 }
 
 func (o *ORM) Save(model interface{}, columns ...string) sql.Result {
-	result, err := o.ORM.Save(model, columns ...)
+	result, err := o.ORM.Save(model, columns...)
 	if err != nil {
 		panic(err)
 	}
