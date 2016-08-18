@@ -17,7 +17,7 @@ type User struct {
 	RegIP      uint32
 	UpdateTime int64 `orm:"updated"`
 	UpdateIP   uint32
-	OtherField string `orm:"-"`
+	OtherField string `orm:"_"`
 }
 
 type Category struct {
@@ -85,7 +85,10 @@ func TestNewModelInfo(t *testing.T) {
 		Column2Field: map[string]string{"id": "ID", "username": "Username", "password": "Password", "reg_time": "RegTime", "reg_ip": "RegIP", "update_time": "UpdateTime", "update_ip": "UpdateIP"},
 	}
 
-	mi := NewModelInfo(user, "", "")
+	mi, err := NewModelInfo(user, "", "")
+	if err != nil {
+		t.Error(err)
+	}
 	if !reflect.DeepEqual(mi, result) {
 		t.Errorf("TestField2Column error: \n%#v\n%#v", mi, result)
 	}
@@ -114,7 +117,10 @@ func TestNewModelInfo1_Slice(t *testing.T) {
 		Column2Field: map[string]string{"id": "ID", "username": "Username", "password": "Password", "reg_time": "RegTime", "reg_ip": "RegIP", "update_time": "UpdateTime", "update_ip": "UpdateIP"},
 	}
 
-	mi := NewModelInfo(user, "", "")
+	mi, err := NewModelInfo(user, "", "")
+	if err != nil {
+		t.Error(err)
+	}
 	if !reflect.DeepEqual(mi, result) {
 		t.Errorf("TestNewModelInfo1_Slice error: \n%#v\n%#v", mi, result)
 	}
@@ -143,7 +149,10 @@ func TestNewModelInfo_SliceValPtr(t *testing.T) {
 		Column2Field: map[string]string{"id": "ID", "username": "Username", "password": "Password", "reg_time": "RegTime", "reg_ip": "RegIP", "update_time": "UpdateTime", "update_ip": "UpdateIP"},
 	}
 
-	mi := NewModelInfo(user, "", "")
+	mi, err := NewModelInfo(user, "", "")
+	if err != nil {
+		t.Error(err)
+	}
 	if !reflect.DeepEqual(mi, result) {
 		t.Errorf("TestNewModelInfo_SliceValPtr error: \n%#v\n%#v", mi, result)
 	}
@@ -151,8 +160,14 @@ func TestNewModelInfo_SliceValPtr(t *testing.T) {
 
 func TestvalueModelInfo(t *testing.T) {
 	user := &User{}
-	mi1, _ := DefaultModelInfoManager.ValueOf(user)
-	mi2, _ := DefaultModelInfoManager.ValueOf(user)
+	mi1, _, err := DefaultModelInfoManager.ValueOf(user)
+	if err != nil {
+		t.Error(err)
+	}
+	mi2, _, err := DefaultModelInfoManager.ValueOf(user)
+	if err != nil {
+		t.Error(err)
+	}
 
 	if mi1 != mi2 {
 		t.Errorf("TestvalueModelInfo error: \n%#v\n%#v", mi1, mi2)

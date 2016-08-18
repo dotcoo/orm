@@ -2,4 +2,12 @@
 // Use of this source code is governed by a MIT
 // license that can be found in the LICENSE file.
 
-package orm
+package ormweb
+
+import (
+	"github.com/dotcoo/orm"
+)
+
+func NewSQL(table ...string) *orm.SQL {
+	return orm.NewSQL(table...)
+}

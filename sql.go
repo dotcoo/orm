@@ -352,22 +352,22 @@ func (s *SQL) SetORM(orm *ORM) *SQL {
 	return s
 }
 
-func (s *SQL) Select(model interface{}, columns ...string) bool {
+func (s *SQL) Select(model interface{}, columns ...string) (bool, error) {
 	return s.orm.Select(model, s, columns...)
 }
 
-func (s *SQL) Count() int {
+func (s *SQL) Count() (int, error) {
 	return s.orm.Count(s)
 }
 
-func (s *SQL) CountMySQL() int {
+func (s *SQL) CountMySQL() (int, error) {
 	return s.orm.CountMySQL(s)
 }
 
-func (s *SQL) Update(model interface{}, columns ...string) sql.Result {
+func (s *SQL) Update(model interface{}, columns ...string) (sql.Result, error) {
 	return s.orm.Update(model, s, columns...)
 }
 
-func (s *SQL) Delete(model interface{}) sql.Result {
+func (s *SQL) Delete(model interface{}) (sql.Result, error) {
 	return s.orm.Delete(model, s)
 }
