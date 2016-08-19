@@ -5,7 +5,6 @@
 package orm
 
 import (
-	"errors"
 	"reflect"
 	"regexp"
 	"strings"
@@ -36,43 +35,51 @@ func field2Column(field string) (column string) {
 	return strings.ToLower(strings.Trim(re.ReplaceAllString(column, "_$1"), "_"))
 }
 
+type ModelField struct {
+	Field   string
+	Column  string
+	PK      bool
+	Kind    reflect.Kind
+	Created bool
+	Updated bool
+}
+
 type ModelInfo struct {
 	Value reflect.Value
 	Type  reflect.Type
 
-	Map     bool
-	Slice   bool
-	KeyPtr  bool
-	KeyType reflect.Type
-	ValPtr  bool
-	ValType reflect.Type
-
+	Map       bool
+	Slice     bool
+	KeyPtr    bool
+	KeyType   reflect.Type
+	ValPtr    bool
+	ValType   reflect.Type
 	ModelType reflect.Type
 
-	Fields        []string
-	Field2Column  map[string]string
+	Table         string
+	PK            *ModelField
+	Columns       []*ModelField
+	Fields        []*ModelField
+	Column2Field  map[string]*ModelField
+	Field2Column  map[string]*ModelField
+	ColumnNames   []string
+	FieldNames    []string
 	FieldsCreated []string
 	FieldsUpdated []string
-
-	Table string
-	PK    string
-
-	Columns      []string
-	Column2Field map[string]string
 }
 
-func NewModelInfo(model interface{}, prefix, table string) (*ModelInfo, error) {
+func NewModelInfo(model interface{}, prefix, table string) *ModelInfo {
 	mi := new(ModelInfo)
 
 	mi.Value = reflect.ValueOf(model)
 	if mi.Value.Kind() != reflect.Ptr {
-		return nil, errors.New("register model must be a pointer!")
+		panic("register model must be a pointer!")
 	}
 	mi.Value = reflect.Indirect(mi.Value)
 
 	mi.Type = mi.Value.Type()
 	if mi.Type.Kind() != reflect.Struct && mi.Type.Kind() != reflect.Slice && mi.Type.Kind() != reflect.Map {
-		return nil, errors.New("register model must be a pointer struct or pointer slice! or pointer map")
+		panic("register model must be a pointer struct or pointer slice or pointer map")
 	}
 
 	mi.ModelType = mi.Type
@@ -86,7 +93,7 @@ func NewModelInfo(model interface{}, prefix, table string) (*ModelInfo, error) {
 			mi.ValType = mi.ValType.Elem()
 		}
 		if mi.ValType.Kind() != reflect.Struct {
-			return nil, errors.New("register model slice element must be a struct or pointer struct!")
+			panic("register model slice element must be a struct or pointer struct!")
 		}
 
 		mi.ModelType = mi.ValType
@@ -101,7 +108,7 @@ func NewModelInfo(model interface{}, prefix, table string) (*ModelInfo, error) {
 			mi.KeyType = mi.KeyType.Elem()
 		}
 		if mi.KeyType.Kind() > reflect.Uint64 && mi.KeyType.Kind() != reflect.String {
-			return nil, errors.New("register model map key must be a int or string!")
+			panic("register model map key must be a int or string!")
 		}
 
 		mi.ValType = mi.Type.Elem()
@@ -110,32 +117,35 @@ func NewModelInfo(model interface{}, prefix, table string) (*ModelInfo, error) {
 			mi.ValType = mi.ValType.Elem()
 		}
 		if mi.ValType.Kind() != reflect.Struct {
-			return nil, errors.New("register model map element must be a struct or pointer struct!")
+			panic("register model map element must be a struct or pointer struct!")
 		}
 
 		mi.ModelType = mi.ValType
 	}
-
-	mi.Fields = make([]string, 0, mi.ModelType.NumField())
-	mi.Field2Column = make(map[string]string)
-	mi.FieldsCreated = make([]string, 0, 10)
-	mi.FieldsUpdated = make([]string, 0, 10)
 
 	if table == "" {
 		table = field2Column(mi.ModelType.Name())
 	}
 
 	mi.Table = prefix + table
-	mi.PK = "id"
-
-	mi.Columns = make([]string, 0, mi.ModelType.NumField())
-	mi.Column2Field = make(map[string]string)
+	mi.PK = nil
+	mi.Columns = make([]*ModelField, 0, mi.ModelType.NumField())
+	mi.Fields = make([]*ModelField, 0, mi.ModelType.NumField())
+	mi.Column2Field = make(map[string]*ModelField)
+	mi.Field2Column = make(map[string]*ModelField)
+	mi.ColumnNames = make([]string, 0, mi.ModelType.NumField())
+	mi.FieldNames = make([]string, 0, mi.ModelType.NumField())
+	mi.FieldsCreated = make([]string, 0, mi.ModelType.NumField())
+	mi.FieldsUpdated = make([]string, 0, mi.ModelType.NumField())
 
 CONTINUE_FIELD:
 	for i := 0; i < mi.ModelType.NumField(); i++ {
 		tf := mi.ModelType.Field(i)
-		field := tf.Name
-		column := field2Column(field)
+
+		mf := new(ModelField)
+		mf.Field = tf.Name
+		mf.Column = field2Column(tf.Name)
+		mf.Kind = tf.Type.Kind()
 
 		ss := strings.Fields(tf.Tag.Get("orm"))
 		for _, s := range ss {
@@ -144,61 +154,52 @@ CONTINUE_FIELD:
 			case "_":
 				continue CONTINUE_FIELD
 			case "pk":
-				mi.PK = column
+				mf.PK = true
+				mi.PK = mf
 			case "created":
-				mi.FieldsCreated = append(mi.FieldsCreated, field)
+				mf.Created = true
+				mi.FieldsCreated = append(mi.FieldsCreated, mf.Field)
 			case "updated":
-				mi.FieldsUpdated = append(mi.FieldsUpdated, field)
+				mf.Updated = true
+				mi.FieldsUpdated = append(mi.FieldsUpdated, mf.Field)
 			default:
-				column = s
+				mf.Column = s
 			}
 		}
 
-		mi.Fields = append(mi.Fields, field)
-		mi.Field2Column[field] = column
-		mi.Columns = append(mi.Columns, column)
-		mi.Column2Field[column] = field
+		mi.Columns = append(mi.Columns, mf)
+		mi.Fields = append(mi.Fields, mf)
+		mi.Column2Field[mf.Column] = mf
+		mi.Field2Column[mf.Field] = mf
+		mi.ColumnNames = append(mi.ColumnNames, mf.Column)
+		mi.FieldNames = append(mi.FieldNames, mf.Field)
 	}
 
-	return mi, nil
+	return mi
 }
 
-func (mi *ModelInfo) GetColumn(field string) (string, error) {
-	if field == "" {
-		return "", errors.New("field cannot be null string")
+func (mi *ModelInfo) Column(field string) *ModelField {
+	mf, exist := mi.Field2Column[field]
+	if exist {
+		return mf
 	}
-	if field[0] >= 'A' && field[0] <= 'Z' {
-		column, exist := mi.Field2Column[field]
-		if !exist {
-			return "", errors.New("field " + field + " not found!")
-		}
-		return column, nil
-	} else {
-		_, exist := mi.Column2Field[field]
-		if !exist {
-			return "", errors.New("field " + field + " not found!")
-		}
-		return field, nil
+	mf, exist = mi.Column2Field[field]
+	if exist {
+		return mf
 	}
+	panic("column " + field + " not found!")
 }
 
-func (mi *ModelInfo) GetField(column string) (string, error) {
-	if column == "" {
-		return "", errors.New("column cannot be null string")
+func (mi *ModelInfo) Field(column string) *ModelField {
+	mf, exist := mi.Column2Field[column]
+	if exist {
+		return mf
 	}
-	if column[0] >= 'a' && column[0] <= 'z' {
-		field, exist := mi.Column2Field[column]
-		if !exist {
-			return "", errors.New("column " + column + " not found!")
-		}
-		return field, nil
-	} else {
-		_, exist := mi.Field2Column[column]
-		if !exist {
-			return "", errors.New("column " + column + " not found!")
-		}
-		return column, nil
+	mf, exist = mi.Field2Column[column]
+	if exist {
+		return mf
 	}
+	panic("field " + column + " not found!")
 }
 
 type ModelInfoManager struct {
@@ -230,30 +231,25 @@ func (m *ModelInfoManager) Set(mi *ModelInfo) {
 	m.mtx.Unlock()
 }
 
-func (m *ModelInfoManager) Get(t reflect.Type) (*ModelInfo, bool) {
+func (m *ModelInfoManager) Get(t reflect.Type) *ModelInfo {
 	m.mtx.RLock()
-	mi, exist := m.modelInfos[t]
+	mi := m.modelInfos[t]
 	m.mtx.RUnlock()
-	return mi, exist
+	return mi
 }
 
-func (m *ModelInfoManager) ValueOf(model interface{}) (mi *ModelInfo, v reflect.Value, err error) {
-	v = reflect.ValueOf(model)
+func (m *ModelInfoManager) ValueOf(model interface{}) (*ModelInfo, reflect.Value) {
+	v := reflect.ValueOf(model)
 	if v.Kind() != reflect.Ptr {
-		return nil, v, errors.New("register model must be a pointer!")
+		panic("register model must be a pointer!")
 	}
 	v = reflect.Indirect(v)
 	t := v.Type()
 
-	var exist bool
-	mi, exist = m.Get(t)
-	if !exist {
-		var err error
-		mi, err = NewModelInfo(model, m.prefix, "")
-		if err != nil {
-			return nil, v, err
-		}
+	mi := m.Get(t)
+	if mi == nil {
+		mi = NewModelInfo(model, m.prefix, "")
 		m.Set(mi)
 	}
-	return mi, v, nil
+	return mi, v
 }

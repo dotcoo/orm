@@ -65,28 +65,19 @@ func TestOrmInsert(t *testing.T) {
 	u := new(User)
 	u.Username = "dotcoo"
 	u.Password = "dotcoopwd"
-	u.ID, err = o.Insert(u, "username, password").LastInsertId()
-	if err != nil {
-		panic(err)
-	}
+	o.Insert(u, "username, password")
 	t.Log(u.ID)
 
 	c := new(Category)
 	c.Name = "Golang"
-	c.ID, err = o.Insert(c).LastInsertId()
-	if err != nil {
-		panic(err)
-	}
+	o.Insert(c)
 	t.Log(c.ID)
 
 	b := new(Blog)
 	b.CategoryID = c.ID
 	b.Title = "Golang ORM"
 	b.Content = "Golang ORM Content"
-	b.ID, err = o.Insert(b, "category_id", "title", "content").LastInsertId()
-	if err != nil {
-		panic(err)
-	}
+	o.Insert(b, "category_id", "title", "content")
 	t.Log(b.ID)
 }
 
@@ -177,20 +168,26 @@ func TestOrmBatchInsert(t *testing.T) {
 		b.Content = fmt.Sprintf("Golang ORM %d Content", i)
 		blogs = append(blogs, b)
 	}
-	o.BatchInsert(&blogs)
+	err := o.BatchInsert(&blogs)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func TestOrmBatchReplace(t *testing.T) {
 	blogs := make([]*Blog, 0, 100)
 	for i := 1; i <= 100; i++ {
 		b := new(Blog)
-		b.ID = int64(i)
+		b.ID = uint64(i)
 		b.CategoryID = 1
 		b.Title = fmt.Sprintf("Golang ORM %d", i)
 		b.Content = fmt.Sprintf("Golang ORM %d Content", i)
 		blogs = append(blogs, b)
 	}
-	o.BatchReplace(&blogs)
+	err := o.BatchReplace(&blogs)
+	if err != nil {
+		panic(err)
+	}
 }
 
 func TestOrmAdd(t *testing.T) {
@@ -208,11 +205,18 @@ func TestOrmGet(t *testing.T) {
 	t.Log(u, exist)
 }
 
+func TestOrmGetBy(t *testing.T) {
+	u := new(User)
+	u.Username = "dotcoo"
+	exist := o.GetBy(u, "username")
+	t.Log(u, exist)
+}
+
 func TestOrmUp(t *testing.T) {
 	u := new(User)
 	u.ID = 1
 	u.Username = "dotcoo"
-	u.Password = "dotcoopwd"
+	u.Password = "dotcoopwd2"
 	n, err := o.Up(u, "username, password").RowsAffected()
 	t.Log(u, n, err)
 }
@@ -227,6 +231,8 @@ func TestOrmDel(t *testing.T) {
 func TestOrmSave(t *testing.T) {
 	u1 := new(User)
 	u1.ID = 1
+	u1.Username = "dotcoo"
+	o.Add(u1)
 
 	result := o.Del(u1)
 	id, id_err := result.LastInsertId()
@@ -237,38 +243,51 @@ func TestOrmSave(t *testing.T) {
 	t.Log(u1, exist)
 
 	u := new(User)
-	u.ID = 1
 	u.Username = "dotcoo"
-	u.Password = "dotcoopwd2"
-	result = o.Save(u, "*")
-	id, id_err = result.LastInsertId()
-	row, row_err = result.RowsAffected()
-	t.Log(u, id, id_err, row, row_err)
-
-	u2 := new(User)
-	u2.ID = 1
-	exist = o.Get(u2)
-	t.Log(u2, exist)
-
 	u.Password = "dotcoopwd3"
 	result = o.Save(u, "*")
 	id, id_err = result.LastInsertId()
 	row, row_err = result.RowsAffected()
 	t.Log(u, id, id_err, row, row_err)
 
+	u2 := new(User)
+	u2.ID = 2
+	exist = o.Get(u2)
+	t.Log(u2, exist)
+
+	u.Password = "dotcoopwd4"
+	result = o.Save(u, "*")
+	id, id_err = result.LastInsertId()
+	row, row_err = result.RowsAffected()
+	t.Log(u, id, id_err, row, row_err)
+
 	u3 := new(User)
-	u3.ID = 1
+	u3.ID = 2
 	exist = o.Get(u3)
 	t.Log(u3, exist)
 }
 
-func TestOrmForeignKey(t *testing.T) {
+func TestOrmForeignKey_Slice(t *testing.T) {
 	blogs := make([]Blog, 0, 100)
 	s := o.NewSQL().Where("id > ?", 10).Order("id").Page(3, 10)
 	o.Select(&blogs, s)
 	t.Log(blogs)
 
 	categorys := make([]Category, 0, 20)
+	err := o.ForeignKey(&blogs, "category_id", &categorys, "id")
+	if err != nil {
+		panic(err)
+	}
+	t.Log(categorys)
+}
+
+func TestOrmForeignKey_Map(t *testing.T) {
+	blogs := make([]*Blog, 0, 100)
+	s := o.NewSQL().Where("id > ?", 10).Order("id").Page(3, 10)
+	o.Select(&blogs, s)
+	t.Log(blogs)
+
+	categorys := make(map[uint64]Category)
 	err := o.ForeignKey(&blogs, "category_id", &categorys, "id")
 	if err != nil {
 		panic(err)
@@ -286,9 +305,9 @@ func TestOrmTransaction(t *testing.T) {
 
 	u := new(User)
 	u.ID = 1
-	s := otx.NewSQL().Where("id = ?", u.ID).ForUpdate()
 
-	if !o.Select(u, s) {
+	s := otx.NewSQL().Where("id = ?", u.ID).ForUpdate()
+	if !otx.Select(u, s) {
 		panic("user 1 not found!")
 	}
 

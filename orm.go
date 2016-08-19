@@ -6,7 +6,6 @@ package orm
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -62,7 +61,7 @@ func (o *ORM) getTxOrDB() dber {
 
 func (o *ORM) Exec(query string, args ...interface{}) (sql.Result, error) {
 	if strings.IndexByte(query, '\'') >= 0 {
-		return nil, errors.New("SQL statement cannot contain single quotes!")
+		panic("SQL statement cannot contain single quotes!")
 	}
 	result, err := o.getTxOrDB().Exec(query, args...)
 	if err != nil {
@@ -73,7 +72,7 @@ func (o *ORM) Exec(query string, args ...interface{}) (sql.Result, error) {
 
 func (o *ORM) Query(query string, args ...interface{}) (*sql.Rows, error) {
 	if strings.IndexByte(query, '\'') >= 0 {
-		return nil, errors.New("SQL statement cannot contain single quotes!")
+		panic("SQL statement cannot contain single quotes!")
 	}
 	rows, err := o.getTxOrDB().Query(query, args...)
 	if err != nil {
@@ -84,7 +83,7 @@ func (o *ORM) Query(query string, args ...interface{}) (*sql.Rows, error) {
 
 func (o *ORM) QueryRow(query string, args ...interface{}) (*sql.Row, error) {
 	if strings.IndexByte(query, '\'') >= 0 {
-		return nil, errors.New("SQL statement cannot contain single quotes!")
+		panic("SQL statement cannot contain single quotes!")
 	}
 	return o.getTxOrDB().QueryRow(query, args...), nil
 }
@@ -141,21 +140,13 @@ func (o *ORM) Manager() *ModelInfoManager {
 func fillModel(v reflect.Value, mi *ModelInfo, columns []string) ([]interface{}, error) {
 	vals := make([]interface{}, 0, len(columns))
 	for _, column := range columns {
-		field, err := mi.GetField(column)
-		if err != nil {
-			return nil, err
-		}
-		fp := v.FieldByName(field).Addr().Interface()
-		vals = append(vals, fp)
+		vals = append(vals, v.FieldByName(mi.Field(column).Field).Addr().Interface())
 	}
 	return vals, nil
 }
 
 func (o *ORM) RawSelect(model interface{}, s *SQL, columns ...string) (bool, error) {
-	mi, v, err := o.Manager().ValueOf(model)
-	if err != nil {
-		return false, err
-	}
+	mi, v := o.Manager().ValueOf(model)
 
 	s.From(mi.Table).Columns(columns...)
 
@@ -202,10 +193,7 @@ func (o *ORM) RawSelect(model interface{}, s *SQL, columns ...string) (bool, err
 				return false, err
 			}
 
-			field, err := mi.GetField(columns[0])
-			if err != nil {
-				return false, err
-			}
+			field := mi.Field(columns[0]).Field
 
 			if mi.ValPtr {
 				if mi.KeyPtr {
@@ -258,10 +246,10 @@ func (o *ORM) RawCountMySQL(s *SQL) (count int, err error) {
 func columnsDefault(mi *ModelInfo, columns ...string) []string {
 	switch len(columns) {
 	case 0:
-		columns = mi.Columns
+		columns = mi.ColumnNames
 	case 1:
 		if columns[0] == "*" {
-			columns = mi.Columns
+			columns = mi.ColumnNames
 		} else {
 			columns = strings.Split(columns[0], ",")
 			for i, column := range columns {
@@ -272,56 +260,75 @@ func columnsDefault(mi *ModelInfo, columns ...string) []string {
 	return columns
 }
 
-func setModel(s *SQL, v reflect.Value, mi *ModelInfo, skipPK bool, columns ...string) error {
+func valInt(v reflect.Value) (int64, uint64) {
+	kind := v.Kind()
+	if kind >= reflect.Int && kind <= reflect.Int64 {
+		return v.Int(), 0
+	}
+	if kind >= reflect.Uint && kind <= reflect.Uint64 {
+		return 0, v.Uint()
+	}
+	return 0, 0
+}
+
+func valSetInt(v reflect.Value, i64 int64, u64 uint64) {
+	kind := v.Kind()
+	if kind >= reflect.Int && kind <= reflect.Int64 {
+		v.SetInt(i64)
+	}
+	if kind >= reflect.Uint && kind <= reflect.Uint64 {
+		v.SetUint(u64)
+	}
+}
+
+func setModel(s *SQL, v reflect.Value, mi *ModelInfo, skipPK bool, columns ...string) {
 	columns = columnsDefault(mi, columns...)
 	for _, column := range columns {
-		if skipPK && column == mi.PK {
+		if skipPK && column == mi.PK.Column {
 			continue
 		}
-		field, err := mi.GetField(column)
-		if err != nil {
-			return err
+		mf := mi.Field(column)
+		if mf.Field == mi.PK.Field {
+			i64, u64 := valInt(v.FieldByName(mf.Field))
+			if i64 <= 0 && u64 <= 0 {
+				continue
+			}
 		}
-		val := v.FieldByName(field)
-		if field == mi.PK && val.Int() <= 0 {
-			continue
-		}
-		s.Set(column, val.Interface())
+		s.Set(column, v.FieldByName(mf.Field).Interface())
 	}
-	return nil
 }
 
 func (o *ORM) RawInsert(model interface{}, columns ...string) (sql.Result, error) {
-	mi, v, err := o.Manager().ValueOf(model)
-	if err != nil {
-		return nil, err
-	}
+	mi, v := o.Manager().ValueOf(model)
 
+	u := time.Now().Unix()
 	for _, field := range mi.FieldsCreated {
-		v.FieldByName(field).SetInt(time.Now().Unix())
+		valSetInt(v.FieldByName(field), u, uint64(u))
 	}
 
 	s := o.NewSQL().From(mi.Table)
-	err = setModel(s, v, mi, false, columns...)
+	setModel(s, v, mi, false, columns...)
+
+	query, args := s.ToInsert()
+	result, err := o.Exec(query, args...)
 	if err != nil {
 		return nil, err
 	}
 
-	query, args := s.ToInsert()
-	return o.Exec(query, args...)
+	id, err := result.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+	valSetInt(v.FieldByName(mi.PK.Field), id, uint64(id))
+
+	return result, err
 }
 
 func (o *ORM) RawReplace(model interface{}, columns ...string) (sql.Result, error) {
-	mi, v, err := o.Manager().ValueOf(model)
-	if err != nil {
-		return nil, err
-	}
+	mi, v := o.Manager().ValueOf(model)
 
 	s := o.NewSQL().From(mi.Table)
-	err = setModel(s, v, mi, false, columns...)
-	if err != nil {
-		return nil, err
-	}
+	setModel(s, v, mi, false, columns...)
 
 	query, args := s.ToReplace()
 	return o.Exec(query, args...)
@@ -329,33 +336,25 @@ func (o *ORM) RawReplace(model interface{}, columns ...string) (sql.Result, erro
 
 func (o *ORM) RawUpdate(model interface{}, s *SQL, columns ...string) (sql.Result, error) {
 	if len(s.sets) == 0 && len(columns) == 0 {
-		return nil, errors.New("Update columns cannot be empty! if update all columns, please input \"*\".")
+		panic("Update columns cannot be empty! if update all columns, please input \"*\".")
 	}
 
-	mi, v, err := o.Manager().ValueOf(model)
-	if err != nil {
-		return nil, err
-	}
+	mi, v := o.Manager().ValueOf(model)
 
+	u := time.Now().Unix()
 	for _, field := range mi.FieldsUpdated {
-		v.FieldByName(field).SetInt(time.Now().Unix())
+		valSetInt(v.FieldByName(field), u, uint64(u))
 	}
 
 	s.From(mi.Table)
-	err = setModel(s, v, mi, true, columns...)
-	if err != nil {
-		return nil, err
-	}
+	setModel(s, v, mi, true, columns...)
 
 	query, args := s.ToUpdate()
 	return o.Exec(query, args...)
 }
 
 func (o *ORM) RawDelete(model interface{}, s *SQL) (sql.Result, error) {
-	mi, _, err := o.Manager().ValueOf(model)
-	if err != nil {
-		return nil, err
-	}
+	mi, _ := o.Manager().ValueOf(model)
 
 	s.From(mi.Table)
 
@@ -364,20 +363,13 @@ func (o *ORM) RawDelete(model interface{}, s *SQL) (sql.Result, error) {
 }
 
 func (o *ORM) batchInsertOrReplace(mode string, lineBatch int, models interface{}, columns ...string) error {
-	mi, vs, err := o.Manager().ValueOf(models)
-	if err != nil {
-		return err
-	}
+	mi, vs := o.Manager().ValueOf(models)
 
 	columns = columnsDefault(mi, columns...)
 
 	fields := make([]string, 0, len(columns))
 	for _, column := range columns {
-		field, err := mi.GetField(column)
-		if err != nil {
-			return err
-		}
-		fields = append(fields, field)
+		fields = append(fields, mi.Field(column).Field)
 	}
 
 	column := strings.Join(columns, "`,`")
@@ -419,16 +411,9 @@ func (o *ORM) BatchReplace(models interface{}, columns ...string) error {
 
 // quick method
 
-func whereById(o *ORM, model interface{}) (*SQL, error) {
-	mi, v, err := o.Manager().ValueOf(model)
-	if err != nil {
-		return nil, err
-	}
-	field, err := mi.GetField(mi.PK)
-	if err != nil {
-		return nil, err
-	}
-	return o.NewSQL().Where(fmt.Sprintf("`%s` = ?", mi.PK), v.FieldByName(field).Interface()), nil
+func whereById(o *ORM, model interface{}) *SQL {
+	mi, v := o.Manager().ValueOf(model)
+	return o.NewSQL().Where(fmt.Sprintf("`%s` = ?", mi.PK.Column), v.FieldByName(mi.PK.Field).Interface())
 }
 
 func (o *ORM) RawAdd(model interface{}, columns ...string) (sql.Result, error) {
@@ -436,58 +421,33 @@ func (o *ORM) RawAdd(model interface{}, columns ...string) (sql.Result, error) {
 }
 
 func (o *ORM) RawGet(model interface{}, columns ...string) (bool, error) {
-	sq, err := whereById(o, model)
-	if err != nil {
-		return false, err
-	}
-	return o.RawSelect(model, sq, columns...)
+	return o.RawSelect(model, whereById(o, model), columns...)
 }
 
 func (o *ORM) RawGetBy(model interface{}, columns ...string) (bool, error) {
-	mi, v, err := o.Manager().ValueOf(model)
-	if err != nil {
-		return false, err
-	}
+	mi, v := o.Manager().ValueOf(model)
 	if len(columns) == 0 {
-		return false, errors.New("columns not can null!")
+		panic("columns not can null!")
 	}
 	sq := o.NewSQL()
 	for _, column := range columns {
-		field, err := mi.GetField(column)
-		if err != nil {
-			return false, err
-		}
-		sq.Where(fmt.Sprintf("`%s` = ?", column), v.FieldByName(field).Interface())
+		sq.Where(fmt.Sprintf("`%s` = ?", column), v.FieldByName(mi.Field(column).Field).Interface())
 	}
-	return o.RawSelect(model, sq, columns...)
+	return o.RawSelect(model, sq, columnsDefault(mi)...)
 }
 
 func (o *ORM) RawUp(model interface{}, columns ...string) (sql.Result, error) {
-	sq, err := whereById(o, model)
-	if err != nil {
-		return nil, err
-	}
-	return o.RawUpdate(model, sq, columns...)
+	return o.RawUpdate(model, whereById(o, model), columns...)
 }
 
 func (o *ORM) RawDel(model interface{}) (sql.Result, error) {
-	sq, err := whereById(o, model)
-	if err != nil {
-		return nil, err
-	}
-	return o.RawDelete(model, sq)
+	return o.RawDelete(model, whereById(o, model))
 }
 
 func (o *ORM) RawSave(model interface{}, columns ...string) (sql.Result, error) {
-	mi, v, err := o.Manager().ValueOf(model)
-	if err != nil {
-		return nil, err
-	}
-	field, err := mi.GetField(mi.PK)
-	if err != nil {
-		return nil, err
-	}
-	if v.FieldByName(field).Int() > 0 {
+	mi, v := o.Manager().ValueOf(model)
+	i64, u64 := valInt(v.FieldByName(mi.PK.Field))
+	if i64 > 0 || u64 > 0 {
 		return o.RawUp(model, columns...)
 	} else {
 		return o.RawAdd(model, columns...)
@@ -497,42 +457,41 @@ func (o *ORM) RawSave(model interface{}, columns ...string) (sql.Result, error) 
 // foreign key
 
 func (o *ORM) ForeignKey(sources interface{}, fk_column string, models interface{}, pk_column string, columns ...string) error {
-	mi, vs, err := o.Manager().ValueOf(sources)
-	if err != nil {
-		return err
-	}
+	mi, vs := o.Manager().ValueOf(sources)
 
 	if vs.Len() == 0 {
 		return nil
 	}
 
-	field, err := mi.GetField(fk_column)
-	if err != nil {
-		return err
-	}
-	sf, exist := mi.ValType.FieldByName(field)
-	if !exist {
-		return errors.New("field " + field + " not found!")
-	}
-	kind := sf.Type.Kind()
-	if kind != reflect.Int && kind != reflect.Int32 && kind != reflect.Int64 && kind != reflect.Uint && kind != reflect.Uint32 && kind != reflect.Uint64 {
-		return errors.New("field " + field + " not int type!")
+	fk := mi.Field(fk_column)
+	if fk.Kind < reflect.Int && fk.Kind > reflect.Uint64 {
+		panic("field " + fk.Field + " not int type!")
 	}
 
-	ids_map := make(map[int64]bool)
+	isInt64 := fk.Kind >= reflect.Int && fk.Kind <= reflect.Int64
+
+	ids_map_int64 := make(map[int64]bool)
+	ids_map_uint64 := make(map[uint64]bool)
 	models_len := vs.Len()
 	for i := 0; i < models_len; i++ {
-		v := reflect.Indirect(vs.Index(i))
-		ids_map[v.FieldByName(field).Int()] = true
+		i64, u64 := valInt(reflect.Indirect(vs.Index(i)).FieldByName(fk.Field))
+		if isInt64 {
+			ids_map_int64[i64] = true
+		} else {
+			ids_map_uint64[u64] = true
+		}
 	}
 
 	ids := make([]interface{}, 0, 20)
-	for id, _ := range ids_map {
+	for id, _ := range ids_map_int64 {
+		ids = append(ids, id)
+	}
+	for id, _ := range ids_map_uint64 {
 		ids = append(ids, id)
 	}
 
 	s := o.NewSQL().WhereIn(fmt.Sprintf("`%s` in (?)", pk_column), ids...)
-	_, err = o.RawSelect(models, s, columns...)
+	_, err := o.RawSelect(models, s, columns...)
 	return err
 }
 

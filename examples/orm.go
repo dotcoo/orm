@@ -49,29 +49,29 @@ var init_sqls []string = []string{
 }
 
 type User struct {
-	ID         int64 `orm:"pk"`
+	ID         int `orm:"pk"`
 	Username   string
 	Password   string
-	RegTime    int64 `orm:"created"`
+	RegTime    int `orm:"created"`
 	RegIP      uint32
-	UpdateTime int64 `orm:"updated"`
+	UpdateTime int `orm:"updated"`
 	UpdateIP   uint32
 	OtherField string `orm:"_"`
 }
 
 type Category struct {
-	ID   int64 `orm:"pk"`
+	ID   int `orm:"pk"`
 	Name string
 }
 
 type Blog struct {
-	ID         int64 `orm:"pk"`
-	CategoryID int64
-	UserID     int64
+	ID         int `orm:"pk"`
+	CategoryID int
+	UserID     int
 	Title      string
 	Content    string
-	AddTime    int64 `orm:"created"`
-	UpdateTime int64 `orm:"updated"`
+	AddTime    int `orm:"created"`
+	UpdateTime int `orm:"updated"`
 }
 
 func main() {
@@ -90,7 +90,7 @@ func main() {
 
 	var user *User
 	var users []User
-	var users_map map[int64]User
+	var users_map map[int]User
 	var result sql.Result
 	var ok bool
 	var sq *orm.SQL
@@ -108,6 +108,7 @@ func main() {
 	// result = orm.Add(user, "id, username")
 	// result = orm.Add(user, []string{"id", "username"}...)
 
+	log.Println(user.ID)
 	log.Println(result.LastInsertId())
 
 	// ### Read/Retrieve
@@ -231,7 +232,7 @@ func main() {
 
 	// #### Map
 
-	users_map = make(map[int64]User)
+	users_map = make(map[int]User)
 
 	sq = orm.NewSQL().Where("username like ?", "dotcoo%")
 
@@ -395,7 +396,7 @@ func main() {
 		{ID: 3, Title: "blog title 3", UserID: 3},
 	}
 
-	users_map = make(map[int64]User)
+	users_map = make(map[int]User)
 
 	err = orm.ForeignKey(&blogs, "user_id", &users_map, "id")
 	// err = orm.ForeignKey(&blogs, "user_id", &users_map, "id", "id, username, password")
@@ -435,17 +436,15 @@ func main() {
 
 	user = new(User)
 
-	mi, ok := m.Get(reflect.ValueOf(user).Elem().Type())
+	mi := m.Get(reflect.ValueOf(user).Elem().Type())
 
-	if ok {
+	if mi == nil {
+		// if not exist, modify table name
+		mi = orm.NewModelInfo(user, "prefix_", "users")
+	} else {
 		// if exist, modify table name
 		mi.Table = "prefix_users"
-	} else {
-		// if not exist, modify table name
-		mi, err = orm.NewModelInfo(user, "prefix_", "users")
-		if err != nil {
-			panic(err)
-		}
-		m.Set(mi)
 	}
+
+	m.Set(mi)
 }
