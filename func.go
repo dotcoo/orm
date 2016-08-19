@@ -34,31 +34,31 @@ func QueryOne(val interface{}, query string, args ...interface{}) (bool, error) 
 	return DefaultORM.QueryOne(val, query, args...)
 }
 
-func Select(model interface{}, s *SQL, columns ...string) (bool, error) {
+func Select(model interface{}, s *SQL, columns ...string) bool {
 	return DefaultORM.Select(model, s, columns...)
 }
 
-func Count(s *SQL) (int, error) {
+func Count(s *SQL) int {
 	return DefaultORM.Count(s)
 }
 
-func CountMySQL(s *SQL) (int, error) {
+func CountMySQL(s *SQL) int {
 	return DefaultORM.CountMySQL(s)
 }
 
-func Insert(model interface{}, columns ...string) (sql.Result, error) {
+func Insert(model interface{}, columns ...string) sql.Result {
 	return DefaultORM.Insert(model, columns...)
 }
 
-func Replace(model interface{}, columns ...string) (sql.Result, error) {
+func Replace(model interface{}, columns ...string) sql.Result {
 	return DefaultORM.Replace(model, columns...)
 }
 
-func Update(model interface{}, s *SQL, columns ...string) (sql.Result, error) {
+func Update(model interface{}, s *SQL, columns ...string) sql.Result {
 	return DefaultORM.Update(model, s, columns...)
 }
 
-func Delete(model interface{}, s *SQL) (sql.Result, error) {
+func Delete(model interface{}, s *SQL) sql.Result {
 	return DefaultORM.Delete(model, s)
 }
 
@@ -70,23 +70,27 @@ func BatchReplace(models interface{}, columns ...string) error {
 	return DefaultORM.BatchReplace(models, columns...)
 }
 
-func Add(model interface{}, columns ...string) (sql.Result, error) {
+func Add(model interface{}, columns ...string) sql.Result {
 	return DefaultORM.Add(model, columns...)
 }
 
-func Get(model interface{}, columns ...string) (bool, error) {
+func Get(model interface{}, columns ...string) bool {
 	return DefaultORM.Get(model, columns...)
 }
 
-func Up(model interface{}, columns ...string) (sql.Result, error) {
+func GetBy(model interface{}, columns ...string) bool {
+	return DefaultORM.GetBy(model, columns...)
+}
+
+func Up(model interface{}, columns ...string) sql.Result {
 	return DefaultORM.Up(model, columns...)
 }
 
-func Del(model interface{}) (sql.Result, error) {
+func Del(model interface{}) sql.Result {
 	return DefaultORM.Del(model)
 }
 
-func Save(model interface{}, columns ...string) (sql.Result, error) {
+func Save(model interface{}, columns ...string) sql.Result {
 	return DefaultORM.Save(model, columns...)
 }
 

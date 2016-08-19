@@ -104,26 +104,34 @@ func main() {
 	user.Username = "dotcoo"
 	user.Password = "123456"
 
-	result, err = orm.Add(user)
-	// result, err = orm.Add(user, "id, username")
-	// result, err = orm.Add(user, []string{"id", "username"}...)
-	if err != nil {
-		panic(err)
-	}
+	result = orm.Add(user)
+	// result = orm.Add(user, "id, username")
+	// result = orm.Add(user, []string{"id", "username"}...)
 
 	log.Println(result.LastInsertId())
 
-	// ### Retrieve
+	// ### Read/Retrieve
 
 	user = new(User)
 	user.ID = 1
 
-	ok, err = orm.Get(user)
-	// ok, err = orm.Get(user, "id, username")
-	// ok, err = orm.Get(user, []string{"id", "username"}...)
-	if err != nil {
-		panic(err)
+	ok = orm.Get(user)
+	// ok = orm.Get(user, "id, username")
+	// ok = orm.Get(user, []string{"id", "username"}...)
+
+	if ok {
+		log.Println(user)
+	} else {
+		log.Println("user not find")
 	}
+
+	// #### GetBy
+
+	user = new(User)
+	user.Username = "dotcoo"
+	ok = orm.GetBy(user, "username")
+	// ok = orm.GetBy(user, "id, username")
+	// ok = orm.GetBy(user, []string{"id", "username"}...)
 
 	if ok {
 		log.Println(user)
@@ -137,12 +145,9 @@ func main() {
 	user.ID = 1
 	user.Password = "654321"
 
-	result, err = orm.Up(user, "password")
-	// result, err = orm.Up(user, "id, username")
-	// result, err = orm.Up(user, []string{"id", "username"}...)
-	if err != nil {
-		panic(err)
-	}
+	result = orm.Up(user, "password")
+	// result = orm.Up(user, "id, username")
+	// result = orm.Up(user, []string{"id", "username"}...)
 
 	log.Println(result.RowsAffected())
 
@@ -151,10 +156,7 @@ func main() {
 	user = new(User)
 	user.ID = 1
 
-	result, err = orm.Del(user)
-	if err != nil {
-		panic(err)
-	}
+	result = orm.Del(user)
 
 	log.Println(result.RowsAffected())
 
@@ -165,12 +167,9 @@ func main() {
 	user.Username = "dotcoo2"
 	user.Password = "123456"
 
-	result, err = orm.Save(user)
-	// result, err = orm.Save(user, "id, username")
-	// result, err = orm.Save(user, []string{"id", "username"}...)
-	if err != nil {
-		panic(err)
-	}
+	result = orm.Save(user)
+	// result = orm.Save(user, "id, username")
+	// result = orm.Save(user, []string{"id", "username"}...)
 
 	log.Println(result.LastInsertId())
 	log.Println(result.RowsAffected())
@@ -180,10 +179,7 @@ func main() {
 	user.Username = "dotcoo2"
 	user.Password = "654321"
 
-	result, err = orm.Save(user, "username, password")
-	if err != nil {
-		panic(err)
-	}
+	result = orm.Save(user, "username, password")
 
 	log.Println(result.LastInsertId())
 	log.Println(result.RowsAffected())
@@ -197,12 +193,9 @@ func main() {
 	user.Username = "dotcoo"
 	user.Password = "123456"
 
-	result, err = orm.Insert(user, "id, username, password")
-	// result, err = orm.Insert(user, "id, username")
-	// result, err = orm.Insert(user, []string{"id", "username", "password"}...)
-	if err != nil {
-		panic(err)
-	}
+	result = orm.Insert(user, "id, username, password")
+	// result = orm.Insert(user, "id, username")
+	// result = orm.Insert(user, []string{"id", "username", "password"}...)
 
 	log.Println(result.LastInsertId())
 
@@ -212,12 +205,9 @@ func main() {
 
 	sq = orm.NewSQL().Where("username = ?", "dotcoo")
 
-	ok, err = orm.Select(user, sq)
-	// ok, err = orm.Select(user, sq, "id, username, password")
-	// ok, err = orm.Select(user, sq, []string{"id", "username", "password"}...)
-	if err != nil {
-		panic(err)
-	}
+	ok = orm.Select(user, sq)
+	// ok = orm.Select(user, sq, "id, username, password")
+	// ok = orm.Select(user, sq, []string{"id", "username", "password"}...)
 
 	if ok {
 		log.Println(user)
@@ -233,12 +223,9 @@ func main() {
 
 	sq = orm.NewSQL().Where("username like ?", "dotcoo%")
 
-	ok, err = orm.Select(&users, sq)
-	// ok, err = orm.Select(&users, sq, "id, username, password")
-	// ok, err = orm.Select(&users, sq, []string{"id", "username", "password"}...)
-	if err != nil {
-		panic(err)
-	}
+	ok = orm.Select(&users, sq)
+	// ok = orm.Select(&users, sq, "id, username, password")
+	// ok = orm.Select(&users, sq, []string{"id", "username", "password"}...)
 
 	log.Println(users)
 
@@ -248,21 +235,15 @@ func main() {
 
 	sq = orm.NewSQL().Where("username like ?", "dotcoo%")
 
-	ok, err = orm.Select(&users_map, sq)
-	// ok, err = orm.Select(&users_map, sq, "id, username, password")
-	// ok, err = orm.Select(&users_map, sq, []string{"id", "username", "password"}...)
-	if err != nil {
-		panic(err)
-	}
+	ok = orm.Select(&users_map, sq)
+	// ok = orm.Select(&users_map, sq, "id, username, password")
+	// ok = orm.Select(&users_map, sq, []string{"id", "username", "password"}...)
 
 	log.Println(users_map)
 
 	// ### Count
 
-	n, err = orm.Count(sq)
-	if err != nil {
-		panic(err)
-	}
+	n = orm.Count(sq)
 
 	log.Println(n)
 
@@ -273,13 +254,10 @@ func main() {
 
 	sq = orm.NewSQL().Where("username like ?", "dotcoo%")
 
-	result, err = orm.Update(user, sq, "password")
-	// result, err = orm.Update(user, sq, "*") // Warning: Update All Columns
-	// result, err = orm.Update(user, sq, "username, password")
-	// result, err = orm.Update(user, sq, []string{"username", "password"}...)
-	if err != nil {
-		panic(err)
-	}
+	result = orm.Update(user, sq, "password")
+	// result = orm.Update(user, sq, "*") // Warning: Update All Columns
+	// result = orm.Update(user, sq, "username, password")
+	// result = orm.Update(user, sq, []string{"username", "password"}...)
 
 	log.Println(result.RowsAffected())
 
@@ -289,10 +267,7 @@ func main() {
 
 	sq = orm.NewSQL().Where("username like ?", "dotcoo%")
 
-	result, err = orm.Delete(user, sq)
-	if err != nil {
-		panic(err)
-	}
+	result = orm.Delete(user, sq)
 
 	log.Println(result.RowsAffected())
 
@@ -353,23 +328,36 @@ func main() {
 	// ### Exec
 
 	result, err = orm.Exec("delete from test_user where id < ?", 10)
+	if err != nil {
+		panic(err)
+	}
+	log.Println(result.LastInsertId())
+	log.Println(result.RowsAffected())
 
 	// ### Query
 
 	rows, err := orm.Query("select * from test_user where id < ?", 10)
-
-	log.Println(rows, err)
+	if err != nil {
+		panic(err)
+	}
+	log.Println(rows)
 
 	// ### QueryRow
 
 	row, err := orm.Query("select * from test_user where id = ?", 10)
-
-	log.Println(row, err)
+	if err != nil {
+		panic(err)
+	}
+	log.Println(row)
 
 	// ### QueryOne
 
 	count := 0
 	ok, err = orm.QueryOne(&count, "select count(*) as c from test_user")
+	if err != nil {
+		panic(err)
+	}
+	log.Println(ok)
 
 	// ## Other
 
@@ -428,21 +416,14 @@ func main() {
 
 	user = new(User)
 	sq = otx.NewSQL().Where("id = ?", 3).ForUpdate()
-	ok, err = otx.Select(user, sq)
-	if err != nil {
-		panic(err)
-	}
+	ok = otx.Select(user, sq)
 
 	if !ok {
 		otx.Rollback()
 		log.Println("Rollback")
 	} else {
 		user.RegTime++
-		result, err = otx.Up(user, "reg_time")
-		if err != nil {
-			panic(err)
-		}
-		log.Println(result.RowsAffected())
+		otx.Up(user, "reg_time")
 
 		otx.Commit()
 		log.Println("Commit")

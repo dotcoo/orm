@@ -352,22 +352,42 @@ func (s *SQL) SetORM(orm *ORM) *SQL {
 	return s
 }
 
-func (s *SQL) Select(model interface{}, columns ...string) (bool, error) {
+func (s *SQL) RawSelect(model interface{}, columns ...string) (bool, error) {
+	return s.orm.RawSelect(model, s, columns...)
+}
+
+func (s *SQL) RawCount() (int, error) {
+	return s.orm.RawCount(s)
+}
+
+func (s *SQL) RawCountMySQL() (int, error) {
+	return s.orm.RawCountMySQL(s)
+}
+
+func (s *SQL) RawUpdate(model interface{}, columns ...string) (sql.Result, error) {
+	return s.orm.RawUpdate(model, s, columns...)
+}
+
+func (s *SQL) RawDelete(model interface{}) (sql.Result, error) {
+	return s.orm.RawDelete(model, s)
+}
+
+func (s *SQL) Select(model interface{}, columns ...string) bool {
 	return s.orm.Select(model, s, columns...)
 }
 
-func (s *SQL) Count() (int, error) {
+func (s *SQL) Count() int {
 	return s.orm.Count(s)
 }
 
-func (s *SQL) CountMySQL() (int, error) {
+func (s *SQL) CountMySQL() int {
 	return s.orm.CountMySQL(s)
 }
 
-func (s *SQL) Update(model interface{}, columns ...string) (sql.Result, error) {
+func (s *SQL) Update(model interface{}, columns ...string) sql.Result {
 	return s.orm.Update(model, s, columns...)
 }
 
-func (s *SQL) Delete(model interface{}) (sql.Result, error) {
+func (s *SQL) Delete(model interface{}) sql.Result {
 	return s.orm.Delete(model, s)
 }
