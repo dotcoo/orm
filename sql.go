@@ -11,9 +11,12 @@ import (
 )
 
 type SQL struct {
+	table           string        // table
+	alias           string        // table alias
 	keywords        []string      // keywords
 	columns         []string      // columns
-	table           string        // table
+	from            string        // from
+	cols            []string      // cols
 	sets            []string      // sets
 	setsArgs        []interface{} // sets args
 	joins           []string      // joins
@@ -34,12 +37,10 @@ type SQL struct {
 
 func NewSQL(table ...string) *SQL {
 	s := new(SQL)
+	s.From(table...)
 	s.keywords = make([]string, 0, 0)
 	s.columns = make([]string, 0, 0)
-	s.table = ""
-	if len(table) > 0 {
-		s.table = table[0]
-	}
+	s.cols = make([]string, 0, 20)
 	s.sets = make([]string, 0, 20)
 	s.setsArgs = make([]interface{}, 0, 20)
 	s.joins = make([]string, 0, 0)
@@ -60,6 +61,7 @@ func NewSQL(table ...string) *SQL {
 func (s *SQL) Reset() *SQL {
 	s.keywords = s.keywords[0:0]
 	s.columns = s.columns[0:0]
+	s.cols = s.cols[0:0]
 	s.sets = s.sets[0:0]
 	s.setsArgs = s.setsArgs[0:0]
 	s.joins = s.joins[0:0]
@@ -92,30 +94,35 @@ func (s *SQL) Columns(columns ...string) *SQL {
 	return s
 }
 
-func (s *SQL) Table(table string, alias ...string) *SQL {
-	return s.From(table, alias...)
+func (s *SQL) Table(table ...string) *SQL {
+	return s.From(table...)
 }
 
-func (s *SQL) From(table string, alias ...string) *SQL {
-	if len(alias) == 0 {
-		s.table = fmt.Sprintf("%s", table)
-	} else {
-		s.table = fmt.Sprintf("%s AS %s", table, alias[0])
+func (s *SQL) From(table ...string) *SQL {
+	if len(table) == 1 {
+		s.table = table[0]
+		s.from = fmt.Sprintf("`%s`", s.table)
+	}
+	if len(table) == 2 {
+		s.table = table[0]
+		s.alias = table[1]
+		s.from = fmt.Sprintf("`%s` AS `%s`", s.table, s.alias)
 	}
 	return s
 }
 
 func (s *SQL) Set(col string, val interface{}) *SQL {
-	s.sets = append(s.sets, fmt.Sprintf("%s = ?", col))
+	s.cols = append(s.cols, fmt.Sprintf("`%s`", col))
+	s.sets = append(s.sets, fmt.Sprintf("`%s` = ?", col))
 	s.setsArgs = append(s.setsArgs, val)
 	return s
 }
 
 func (s *SQL) Join(table, alias, cond string) *SQL {
 	if alias == "" {
-		s.joins = append(s.joins, fmt.Sprintf("%s ON %s", table, cond))
+		s.joins = append(s.joins, fmt.Sprintf("`%s` ON `%s`", table, cond))
 	} else {
-		s.joins = append(s.joins, fmt.Sprintf("%s AS %s ON %s", table, alias, cond))
+		s.joins = append(s.joins, fmt.Sprintf("`%s` AS `%s` ON %s", table, alias, cond))
 	}
 	return s
 }
@@ -127,7 +134,7 @@ func (s *SQL) Where(where string, args ...interface{}) *SQL {
 }
 
 func (s *SQL) WhereIn(where string, args ...interface{}) *SQL {
-	where = strings.Replace(where, "?", "?"+strings.Repeat(", ?", len(args)-1), 1)
+	where = strings.Replace(where, "?", strings.Repeat(", ?", len(args))[2:], 1)
 	s.wheres = append(s.wheres, where)
 	s.wheresArgs = append(s.wheresArgs, args...)
 	return s
@@ -173,8 +180,7 @@ func (s *SQL) LockInShareMode() *SQL {
 
 func (s *SQL) SetMap(data map[string]interface{}) *SQL {
 	for col, val := range data {
-		s.sets = append(s.sets, fmt.Sprintf("%s = ?", col))
-		s.setsArgs = append(s.setsArgs, val)
+		s.Set(col, val)
 	}
 	return s
 }
@@ -186,13 +192,13 @@ func (s *SQL) Page(page, pagesize int) *SQL {
 }
 
 func (s *SQL) Plus(col string, val int) *SQL {
-	s.sets = append(s.sets, fmt.Sprintf("%s = %s + ?", col, col))
+	s.sets = append(s.sets, fmt.Sprintf("`%s` = `%s` + ?", col, col))
 	s.setsArgs = append(s.setsArgs, val)
 	return s
 }
 
 func (s *SQL) Incr(col string, val int) *SQL {
-	s.sets = append(s.sets, fmt.Sprintf("%s = last_insert_id(%s + ?)", col, col))
+	s.sets = append(s.sets, fmt.Sprintf("`%s` = last_insert_id(`%s` + ?)", col, col))
 	s.setsArgs = append(s.setsArgs, val)
 	return s
 }
@@ -243,7 +249,7 @@ func (s *SQL) ToSelect(columns ...string) (string, []interface{}) {
 	forUpdate := s.forUpdate
 	lockInShareMode := s.lockInShareMode
 
-	sq := fmt.Sprintf("SELECT%s %s FROM %s%s%s%s%s%s%s%s%s%s", keyword, column, s.table, join, where, group, having, order, limit, offset, forUpdate, lockInShareMode)
+	sq := fmt.Sprintf("SELECT%s %s FROM %s%s%s%s%s%s%s%s%s%s", keyword, column, s.from, join, where, group, having, order, limit, offset, forUpdate, lockInShareMode)
 
 	args := make([]interface{}, 0, 20)
 	args = append(args, s.wheresArgs...)
@@ -263,7 +269,7 @@ func (s *SQL) ToCount() (string, []interface{}) {
 		where = " WHERE " + strings.Join(s.countWheres, " AND ")
 	}
 
-	return fmt.Sprintf("SELECT count(*) AS count FROM %s%s", s.table, where), s.countWheresArgs
+	return fmt.Sprintf("SELECT count(*) AS count FROM %s%s", s.from, where), s.countWheresArgs
 }
 
 func (s *SQL) ToCountMySQL() (string, []interface{}) {
@@ -277,7 +283,7 @@ func (s *SQL) ToInsert() (string, []interface{}) {
 
 	defer s.Reset()
 
-	return fmt.Sprintf("INSERT %s SET %s", s.table, strings.Join(s.sets, ", ")), s.setsArgs
+	return fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", s.from, strings.Join(s.cols, ", "), strings.Repeat(", ?", len(s.cols))[2:]), s.setsArgs
 }
 
 func (s *SQL) ToReplace() (string, []interface{}) {
@@ -287,7 +293,7 @@ func (s *SQL) ToReplace() (string, []interface{}) {
 
 	defer s.Reset()
 
-	return fmt.Sprintf("REPLACE %s SET %s", s.table, strings.Join(s.sets, ", ")), s.setsArgs
+	return fmt.Sprintf("REPLACE INTO %s (%s) VALUES (%s)", s.from, strings.Join(s.cols, ", "), strings.Repeat(", ?", len(s.cols))[2:]), s.setsArgs
 }
 
 func (s *SQL) ToUpdate() (string, []interface{}) {
@@ -311,7 +317,7 @@ func (s *SQL) ToUpdate() (string, []interface{}) {
 		limit = fmt.Sprintf(" LIMIT %d", s.limit)
 	}
 
-	sq := fmt.Sprintf("UPDATE %s SET %s WHERE %s%s%s", s.table, set, where, order, limit)
+	sq := fmt.Sprintf("UPDATE %s SET %s WHERE %s%s%s", s.from, set, where, order, limit)
 
 	args := make([]interface{}, 0, 20)
 	args = append(args, s.setsArgs...)
@@ -337,7 +343,7 @@ func (s *SQL) ToDelete() (string, []interface{}) {
 		limit = fmt.Sprintf(" LIMIT %d", s.limit)
 	}
 
-	return fmt.Sprintf("DELETE FROM %s WHERE %s%s%s", s.table, where, order, limit), s.wheresArgs
+	return fmt.Sprintf("DELETE FROM %s WHERE %s%s%s", s.from, where, order, limit), s.wheresArgs
 }
 
 func (s *SQL) String() string {

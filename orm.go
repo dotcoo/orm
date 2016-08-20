@@ -373,7 +373,7 @@ func (o *ORM) batchInsertOrReplace(mode string, lineBatch int, models interface{
 	}
 
 	column := strings.Join(columns, "`,`")
-	value := ",(?" + strings.Repeat(",?", len(columns)-1) + ")"
+	value := ",(" + strings.Repeat(",?", len(columns))[1:] + ")"
 
 	args := make([]interface{}, 0, lineBatch)
 	models_len := vs.Len()
@@ -383,7 +383,7 @@ func (o *ORM) batchInsertOrReplace(mode string, lineBatch int, models interface{
 			args = append(args, v.FieldByName(field).Interface())
 		}
 		if (i+1)%lineBatch == 0 {
-			query := fmt.Sprintf("%s INTO `%s` (`%s`) VALUES %s%s", mode, mi.Table, column, value[1:], strings.Repeat(value, lineBatch-1))
+			query := fmt.Sprintf("%s INTO `%s` (`%s`) VALUES %s", mode, mi.Table, column, strings.Repeat(value, lineBatch)[1:])
 			_, err := o.Exec(query, args...)
 			if err != nil {
 				return err
@@ -392,7 +392,7 @@ func (o *ORM) batchInsertOrReplace(mode string, lineBatch int, models interface{
 		}
 	}
 	if models_len%lineBatch > 0 {
-		query := fmt.Sprintf("%s INTO `%s` (`%s`) VALUES %s%s", mode, mi.Table, column, value[1:], strings.Repeat(value, models_len%lineBatch-1))
+		query := fmt.Sprintf("%s INTO `%s` (`%s`) VALUES %s", mode, mi.Table, column, strings.Repeat(value, models_len%lineBatch)[1:])
 		_, err := o.Exec(query, args...)
 		if err != nil {
 			return err
@@ -433,7 +433,7 @@ func (o *ORM) RawGetBy(model interface{}, columns ...string) (bool, error) {
 	for _, column := range columns {
 		sq.Where(fmt.Sprintf("`%s` = ?", column), v.FieldByName(mi.Field(column).Field).Interface())
 	}
-	return o.RawSelect(model, sq, columnsDefault(mi)...)
+	return o.RawSelect(model, sq)
 }
 
 func (o *ORM) RawUp(model interface{}, columns ...string) (sql.Result, error) {
