@@ -86,7 +86,7 @@ func TestOrmUpdate(t *testing.T) {
 	u.ID = 1
 	u.Username = "dotcoo"
 	u.Password = "dotcoo123"
-	count, err := o.Update(u, o.NewSQL().Where("id = ?", u.ID), "username, password").RowsAffected()
+	count, err := o.Update(o.NewSQL().Where("id = ?", u.ID), u, "username, password").RowsAffected()
 	if err != nil {
 		panic(err)
 	}
@@ -96,37 +96,33 @@ func TestOrmUpdate(t *testing.T) {
 func TestOrmSelect(t *testing.T) {
 	u := new(User)
 	u.ID = 1
-	if !o.Select(u, o.NewSQL().Where("id = ?", u.ID)) {
+	if !o.Select(o.NewSQL().Where("id = ?", u.ID), u) {
 		panic("user not found")
 	}
 	t.Log(u)
 
 	users := make([]User, 0, 100)
-	o.Select(&users, o.NewSQL(), "id, username")
+	o.Select(o.NewSQL(), &users, "id, username")
 	t.Log(users)
 
 	testOrmCount(t)
+}
 
-	testOrmCountMySQL(t)
+func TestOrmSelectRow(t *testing.T) {
+	s := o.NewSQL("user").Columns("count(*)", "sum(id)", "avg(id)")
+	var count, sum int
+	var avg float64
+	o.SelectRow(s, &count, &sum, &avg)
+	t.Log(count, sum, avg)
 }
 
 func testOrmCount(t *testing.T) {
 	blogs := make([]Blog, 0, 100)
 	s := o.NewSQL().Where("id > ?", 10).Order("id").Page(3, 10)
-	o.Select(&blogs, s)
+	o.Select(s, &blogs)
 	t.Log(blogs)
 
 	count := s.Count()
-	t.Log(count)
-}
-
-func testOrmCountMySQL(t *testing.T) {
-	blogs := make([]Blog, 0, 100)
-	s := o.NewSQL().CalcFoundRows().Where("id > ?", 0).Order("id").Page(3, 10)
-	o.Select(&blogs, s)
-	t.Log(blogs)
-
-	count := s.CountMySQL()
 	t.Log(count)
 }
 
@@ -145,7 +141,7 @@ func TestOrmReplace(t *testing.T) {
 func TestOrmDelete(t *testing.T) {
 	u := new(User)
 	u.ID = 1
-	count, err := o.Delete(u, o.NewSQL().Where("id = ?", u.ID)).RowsAffected()
+	count, err := o.Delete(o.NewSQL().Where("id = ?", u.ID), u).RowsAffected()
 	if err != nil {
 		panic(err)
 	}
@@ -153,7 +149,7 @@ func TestOrmDelete(t *testing.T) {
 
 	b := new(Blog)
 	b.ID = 1
-	count, err = o.Delete(b, o.NewSQL().Where("id = ?", b.ID)).RowsAffected()
+	count, err = o.Delete(o.NewSQL().Where("id = ?", b.ID), b).RowsAffected()
 	if err != nil {
 		panic(err)
 	}
@@ -270,7 +266,7 @@ func TestOrmSave(t *testing.T) {
 func TestOrmForeignKey_Slice(t *testing.T) {
 	blogs := make([]Blog, 0, 100)
 	s := o.NewSQL().Where("id > ?", 10).Order("id").Page(3, 10)
-	o.Select(&blogs, s)
+	o.Select(s, &blogs)
 	t.Log(blogs)
 
 	categorys := make([]Category, 0, 20)
@@ -284,7 +280,7 @@ func TestOrmForeignKey_Slice(t *testing.T) {
 func TestOrmForeignKey_Map(t *testing.T) {
 	blogs := make([]*Blog, 0, 100)
 	s := o.NewSQL().Where("id > ?", 10).Order("id").Page(3, 10)
-	o.Select(&blogs, s)
+	o.Select(s, &blogs)
 	t.Log(blogs)
 
 	categorys := make(map[uint64]Category)
@@ -307,7 +303,7 @@ func TestOrmTransaction(t *testing.T) {
 	u.ID = 1
 
 	s := otx.NewSQL().Where("id = ?", u.ID).ForUpdate()
-	if !otx.Select(u, s) {
+	if !otx.Select(s, u) {
 		panic("user 1 not found!")
 	}
 

@@ -1,3 +1,7 @@
+// # Golang ORM
+
+// ORM library for Go Golang
+
 package main
 
 import (
@@ -5,48 +9,46 @@ import (
 	"log"
 	"reflect"
 
-	// ## import
+	// ## Import
 	"github.com/dotcoo/orm"
 	_ "github.com/go-sql-driver/mysql"
 )
+
+// ## Environment
+
+// ### Database
+
+var init_sqls []string = []string{
+	`DROP TABLE IF EXISTS test_user;`,
+	`CREATE TABLE test_user (
+	  id int(11) NOT NULL AUTO_INCREMENT,
+	  username varchar(16) CHARACTER SET ascii NOT NULL,
+	  password varchar(32) CHARACTER SET ascii NOT NULL,
+	  reg_time int(11) NOT NULL,
+	  reg_ip int(11) NOT NULL,
+	  update_time int(11) NOT NULL,
+	  update_ip int(11) NOT NULL,
+	  PRIMARY KEY (id),
+	  UNIQUE KEY username_UNIQUE (username)
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8;`,
+
+	`DROP TABLE IF EXISTS test_blog;`,
+	`CREATE TABLE test_blog (
+	  id int(11) NOT NULL AUTO_INCREMENT,
+	  user_id int(11) NOT NULL,
+	  title varchar(45) NOT NULL,
+	  content text NOT NULL,
+	  add_time int(11) NOT NULL,
+	  update_time int(11) NOT NULL,
+	  PRIMARY KEY (id)
+	) ENGINE=InnoDB DEFAULT CHARSET=utf8;`,
+}
 
 func init() {
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
 }
 
-var init_sqls []string = []string{
-	`DROP TABLE IF EXISTS test_user;`,
-	`CREATE TABLE test_user (
-	  id int(11) NOT NULL AUTO_INCREMENT COMMENT '用户ID',
-	  username varchar(16) CHARACTER SET ascii NOT NULL COMMENT '用户名',
-	  password varchar(32) CHARACTER SET ascii NOT NULL COMMENT '密码',
-	  reg_time int(11) NOT NULL COMMENT '注册时间',
-	  reg_ip int(11) NOT NULL COMMENT '注册IP',
-	  update_time int(11) NOT NULL COMMENT '更新时间',
-	  update_ip int(11) NOT NULL COMMENT '更新IP',
-	  PRIMARY KEY (id),
-	  UNIQUE KEY username_UNIQUE (username)
-	) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='用户表';`,
-
-	`DROP TABLE IF EXISTS test_category;`,
-	`CREATE TABLE test_category (
-	  id int(11) NOT NULL AUTO_INCREMENT COMMENT '分类编号',
-	  name varchar(45) NOT NULL COMMENT '分类名称',
-	  PRIMARY KEY (id)
-	) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='分类表';`,
-
-	`DROP TABLE IF EXISTS test_blog;`,
-	`CREATE TABLE test_blog (
-	  id int(11) NOT NULL AUTO_INCREMENT COMMENT '域名ID',
-	  category_id int(11) NOT NULL COMMENT '分类ID',
-	  user_id int(11) NOT NULL COMMENT '分类ID',
-	  title varchar(45) NOT NULL COMMENT '标题',
-	  content text NOT NULL COMMENT '内容',
-	  add_time int(11) NOT NULL COMMENT '添加时间',
-	  update_time int(11) NOT NULL COMMENT '更新时间',
-	  PRIMARY KEY (id)
-	) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='博客表';`,
-}
+// ## Models
 
 type User struct {
 	ID         int `orm:"pk"`
@@ -59,14 +61,8 @@ type User struct {
 	OtherField string `orm:"_"`
 }
 
-type Category struct {
-	ID   int `orm:"pk"`
-	Name string
-}
-
 type Blog struct {
 	ID         int `orm:"pk"`
-	CategoryID int
 	UserID     int
 	Title      string
 	Content    string
@@ -75,18 +71,25 @@ type Blog struct {
 }
 
 func main() {
-	// init
+	// ## Initialization
+
+	// ### SetDB
+
 	db, err := sql.Open("mysql", "root:123456@/mingo?charset=utf8")
 	if err != nil {
 		panic(err)
 	}
+	orm.SetDB(db)
 
 	for _, init_sql := range init_sqls {
 		db.Exec(init_sql)
 	}
 
-	orm.SetDB(db)
+	// ### SetPrefix
+
 	orm.SetPrefix("test_")
+
+	// ### Variables
 
 	var user *User
 	var users []User
@@ -105,8 +108,7 @@ func main() {
 	user.Password = "123456"
 
 	result = orm.Add(user)
-	// result = orm.Add(user, "id, username")
-	// result = orm.Add(user, []string{"id", "username"}...)
+	// result = orm.Add(user, "id", "username")
 
 	log.Println(user.ID)
 	log.Println(result.LastInsertId())
@@ -117,8 +119,7 @@ func main() {
 	user.ID = 1
 
 	ok = orm.Get(user)
-	// ok = orm.Get(user, "id, username")
-	// ok = orm.Get(user, []string{"id", "username"}...)
+	// ok = orm.Get(user, "id", "username")
 
 	if ok {
 		log.Println(user)
@@ -131,8 +132,7 @@ func main() {
 	user = new(User)
 	user.Username = "dotcoo"
 	ok = orm.GetBy(user, "username")
-	// ok = orm.GetBy(user, "id, username")
-	// ok = orm.GetBy(user, []string{"id", "username"}...)
+	// ok = orm.GetBy(user, "id", "username")
 
 	if ok {
 		log.Println(user)
@@ -147,8 +147,7 @@ func main() {
 	user.Password = "654321"
 
 	result = orm.Up(user, "password")
-	// result = orm.Up(user, "id, username")
-	// result = orm.Up(user, []string{"id", "username"}...)
+	// result = orm.Up(user, "id", "username")
 
 	log.Println(result.RowsAffected())
 
@@ -163,18 +162,19 @@ func main() {
 
 	// ### Save
 
+	// insert
 	user = new(User)
 	user.ID = 0
 	user.Username = "dotcoo2"
 	user.Password = "123456"
 
 	result = orm.Save(user)
-	// result = orm.Save(user, "id, username")
-	// result = orm.Save(user, []string{"id", "username"}...)
+	// result = orm.Save(user, "id", "username")
 
 	log.Println(result.LastInsertId())
 	log.Println(result.RowsAffected())
 
+	// update
 	user = new(User)
 	user.ID = 2
 	user.Username = "dotcoo2"
@@ -195,20 +195,18 @@ func main() {
 	user.Password = "123456"
 
 	result = orm.Insert(user, "id, username, password")
-	// result = orm.Insert(user, "id, username")
-	// result = orm.Insert(user, []string{"id", "username", "password"}...)
+	// result = orm.Insert(user, "id", "username", "password")
 
 	log.Println(result.LastInsertId())
 
-	// ### Select Row
-
-	user = new(User)
+	// ### Select Model
 
 	sq = orm.NewSQL().Where("username = ?", "dotcoo")
 
-	ok = orm.Select(user, sq)
-	// ok = orm.Select(user, sq, "id, username, password")
-	// ok = orm.Select(user, sq, []string{"id", "username", "password"}...)
+	user = new(User)
+
+	ok = orm.Select(sq, user)
+	// ok = orm.Select(sq, user, "id", "username", "password")
 
 	if ok {
 		log.Println(user)
@@ -216,29 +214,27 @@ func main() {
 		log.Println("user not find")
 	}
 
-	// ### Select Rows
+	// ### Select Models
 
 	// #### Slice
 
-	users = make([]User, 0, 10)
-
 	sq = orm.NewSQL().Where("username like ?", "dotcoo%")
 
-	ok = orm.Select(&users, sq)
-	// ok = orm.Select(&users, sq, "id, username, password")
-	// ok = orm.Select(&users, sq, []string{"id", "username", "password"}...)
+	users = make([]User, 0, 10)
+
+	ok = orm.Select(sq, &users)
+	// ok = orm.Select(sq, &users, "id", "username", "password")
 
 	log.Println(users)
 
 	// #### Map
 
-	users_map = make(map[int]User)
-
 	sq = orm.NewSQL().Where("username like ?", "dotcoo%")
 
-	ok = orm.Select(&users_map, sq)
-	// ok = orm.Select(&users_map, sq, "id, username, password")
-	// ok = orm.Select(&users_map, sq, []string{"id", "username", "password"}...)
+	users_map = make(map[int]User)
+
+	ok = orm.Select(sq, &users_map)
+	// ok = orm.Select(sq, &users_map, "id", "username", "password")
 
 	log.Println(users_map)
 
@@ -248,27 +244,37 @@ func main() {
 
 	log.Println(n)
 
+	// ### Select Row
+
+	sq = orm.NewSQL("user").Columns("count(*)", "sum(id)", "avg(id)")
+
+	var count, sum int
+	var avg float64
+
+	ok = orm.SelectRow(sq, &count, &sum, &avg)
+
+	log.Println(users_map)
+
 	// ### Update
+
+	sq = orm.NewSQL().Where("username like ?", "dotcoo%")
 
 	user = new(User)
 	user.Password = "123321"
 
-	sq = orm.NewSQL().Where("username like ?", "dotcoo%")
-
-	result = orm.Update(user, sq, "password")
-	// result = orm.Update(user, sq, "*") // Warning: Update All Columns
-	// result = orm.Update(user, sq, "username, password")
-	// result = orm.Update(user, sq, []string{"username", "password"}...)
+	result = orm.Update(sq, user, "password")
+	// result = orm.Update(sq, user) // Error
+	// result = orm.Update(sq, user, "*") // Correct
 
 	log.Println(result.RowsAffected())
 
 	// ### Delete
 
-	user = new(User)
-
 	sq = orm.NewSQL().Where("username like ?", "dotcoo%")
 
-	result = orm.Delete(user, sq)
+	user = new(User)
+
+	result = orm.Delete(sq, user)
 
 	log.Println(result.RowsAffected())
 
@@ -351,16 +357,7 @@ func main() {
 	}
 	log.Println(row)
 
-	// ### QueryOne
-
-	count := 0
-	ok, err = orm.QueryOne(&count, "select count(*) as c from test_user")
-	if err != nil {
-		panic(err)
-	}
-	log.Println(ok)
-
-	// ## Other
+	// ## Other Method
 
 	// ### BatchInsert
 
@@ -370,7 +367,7 @@ func main() {
 	}
 
 	err = orm.BatchInsert(&users, "username, password, reg_time")
-	// err = orm.BatchInsert(&users, []string{"username", "password"}...)
+	// err = orm.BatchInsert(&users, "username", "password")
 	if err != nil {
 		panic(err)
 	}
@@ -383,7 +380,7 @@ func main() {
 	}
 
 	err = orm.BatchReplace(&users, "id, username, password")
-	// err = orm.BatchReplace(&users, []string{"id", "username", "password"}...)
+	// err = orm.BatchReplace(&users, "id", "username", "password")
 	if err != nil {
 		panic(err)
 	}
@@ -399,8 +396,7 @@ func main() {
 	users_map = make(map[int]User)
 
 	err = orm.ForeignKey(&blogs, "user_id", &users_map, "id")
-	// err = orm.ForeignKey(&blogs, "user_id", &users_map, "id", "id, username, password")
-	// err = orm.ForeignKey(&blogs, "user_id", &users_map, "id", []string{"id", "username", "password"}...)
+	// err = orm.ForeignKey(&blogs, "user_id", &users_map, "id", "id", "username", "password")
 	if err != nil {
 		panic(err)
 	}
@@ -415,9 +411,9 @@ func main() {
 
 	otx, _ := o.Begin()
 
-	user = new(User)
 	sq = otx.NewSQL().Where("id = ?", 3).ForUpdate()
-	ok = otx.Select(user, sq)
+	user = new(User)
+	ok = otx.Select(sq, user)
 
 	if !ok {
 		otx.Rollback()

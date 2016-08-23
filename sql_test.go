@@ -36,23 +36,15 @@ func TestSQLSelect(t *testing.T) {
 	}
 
 	// count
-	sq, params = s.ToCount()
+	sq, params = s.ToCount().ToSelect()
 	sq_count := "SELECT count(*) AS count FROM `user` WHERE username = ? AND age BETWEEN ? AND ? AND no IN (?, ?, ?, ?, ?)"
 	params_count := []interface{}{"dotcoo", 18, 25, 1, 2, 3, 4, 5}
 	if sq != sq_count || !reflect.DeepEqual(params, params_count) {
 		t.Errorf("sq_count error: %s, %v", sq, params)
 	}
 
-	// count mysql
-	sq, params = s.ToCountMySQL()
-	sq_count_mysql := "SELECT FOUND_ROWS()"
-	params_count_mysql := []interface{}{}
-	if sq != sq_count_mysql || !reflect.DeepEqual(params, params_count_mysql) {
-		t.Errorf("sq_count_mysql error: %s, %v", sq, params)
-	}
-
 	// select
-	sq, params = s.From("blog", "b").Join("user", "u", "b.user_id = u.id").Where("b.start > ?", 200).Page(3, 10).ToSelect()
+	sq, params = NewSQL("user").From("blog", "b").Join("user", "u", "b.user_id = u.id").Where("b.start > ?", 200).Page(3, 10).ToSelect()
 	sq_join := "SELECT * FROM `blog` AS `b` LEFT JOIN `user` AS `u` ON b.user_id = u.id WHERE b.start > ? LIMIT 10 OFFSET 20"
 	params_join := []interface{}{200}
 	if sq != sq_join || !reflect.DeepEqual(params, params_join) {
@@ -60,7 +52,7 @@ func TestSQLSelect(t *testing.T) {
 	}
 
 	// insert
-	sq, params = s.From("user").Set("username", "dotcoo").Set("password", "dotcoopwd").Set("age", 1).ToInsert()
+	sq, params = NewSQL("user").From("user").Set("username", "dotcoo").Set("password", "dotcoopwd").Set("age", 1).ToInsert()
 	sq_insert := "INSERT INTO `user` (`username`, `password`, `age`) VALUES (?, ?, ?)"
 	params_insert := []interface{}{"dotcoo", "dotcoopwd", 1}
 	if sq != sq_insert || !reflect.DeepEqual(params, params_insert) {
@@ -68,7 +60,7 @@ func TestSQLSelect(t *testing.T) {
 	}
 
 	// replace
-	sq, params = s.From("user").Set("username", "dotcoo").Set("password", "dotcoopwd").Set("age", 1).ToReplace()
+	sq, params = NewSQL("user").From("user").Set("username", "dotcoo").Set("password", "dotcoopwd").Set("age", 1).ToReplace()
 	sq_replace := "REPLACE INTO `user` (`username`, `password`, `age`) VALUES (?, ?, ?)"
 	params_replace := []interface{}{"dotcoo", "dotcoopwd", 1}
 	if sq != sq_replace || !reflect.DeepEqual(params, params_replace) {
@@ -76,7 +68,7 @@ func TestSQLSelect(t *testing.T) {
 	}
 
 	// update
-	sq, params = s.From("user").Set("username", "dotcoo").Set("password", "dotcoopwd").Set("age", 1).Where("id = ?", 1).ToUpdate()
+	sq, params = NewSQL("user").From("user").Set("username", "dotcoo").Set("password", "dotcoopwd").Set("age", 1).Where("id = ?", 1).ToUpdate()
 	sq_update := "UPDATE `user` SET `username` = ?, `password` = ?, `age` = ? WHERE id = ?"
 	params_update := []interface{}{"dotcoo", "dotcoopwd", 1, 1}
 	if sq != sq_update || !reflect.DeepEqual(params, params_update) {
@@ -84,7 +76,7 @@ func TestSQLSelect(t *testing.T) {
 	}
 
 	// delete
-	sq, params = s.Where("id = ?", 1).ToDelete()
+	sq, params = NewSQL("user").Where("id = ?", 1).ToDelete()
 	sq_delete := "DELETE FROM `user` WHERE id = ?"
 	params_delete := []interface{}{1}
 	if sq != sq_delete || !reflect.DeepEqual(params, params_delete) {
@@ -92,7 +84,7 @@ func TestSQLSelect(t *testing.T) {
 	}
 
 	// page
-	sq, params = s.Page(3, 10).ToSelect()
+	sq, params = NewSQL("user").Page(3, 10).ToSelect()
 	sq_page := "SELECT * FROM `user` LIMIT 10 OFFSET 20"
 	params_page := []interface{}{}
 	if sq != sq_page || !reflect.DeepEqual(params, params_page) {
@@ -100,7 +92,7 @@ func TestSQLSelect(t *testing.T) {
 	}
 
 	// plus
-	sq, params = s.Plus("age", 1).Where("id = ?", 1).ToUpdate()
+	sq, params = NewSQL("user").Plus("age", 1).Where("id = ?", 1).ToUpdate()
 	sq_plus := "UPDATE `user` SET `age` = `age` + ? WHERE id = ?"
 	params_plus := []interface{}{1, 1}
 	if sq != sq_plus || !reflect.DeepEqual(params, params_plus) {
@@ -108,7 +100,7 @@ func TestSQLSelect(t *testing.T) {
 	}
 
 	// incr
-	sq, params = s.Incr("age", 1).Where("id = ?", 1).ToUpdate()
+	sq, params = NewSQL("user").Incr("age", 1).Where("id = ?", 1).ToUpdate()
 	sq_incr := "UPDATE `user` SET `age` = last_insert_id(`age` + ?) WHERE id = ?"
 	params_incr := []interface{}{1, 1}
 	if sq != sq_incr || !reflect.DeepEqual(params, params_incr) {

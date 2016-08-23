@@ -22,8 +22,6 @@ type SQL struct {
 	joins           []string      // joins
 	wheres          []string      // where
 	wheresArgs      []interface{} // where args
-	countWheres     []string      // count where
-	countWheresArgs []interface{} // count where args
 	groups          []string      // group
 	havings         []string      // having
 	havingsArgs     []interface{} // having args
@@ -38,22 +36,14 @@ type SQL struct {
 func NewSQL(table ...string) *SQL {
 	s := new(SQL)
 	s.From(table...)
-	s.keywords = make([]string, 0, 0)
-	s.columns = make([]string, 0, 0)
 	s.cols = make([]string, 0, 20)
 	s.sets = make([]string, 0, 20)
 	s.setsArgs = make([]interface{}, 0, 20)
-	s.joins = make([]string, 0, 0)
 	s.wheres = make([]string, 0, 5)
 	s.wheresArgs = make([]interface{}, 0, 20)
-	s.groups = make([]string, 0)
-	s.havings = make([]string, 0)
-	s.havingsArgs = make([]interface{}, 0)
-	s.orders = make([]string, 0, 1)
+	s.orders = make([]string, 0, 3)
 	s.limit = -1
 	s.offset = -1
-	s.forUpdate = ""
-	s.lockInShareMode = ""
 	s.orm = DefaultORM
 	return s
 }
@@ -208,8 +198,6 @@ func (s *SQL) Incr(col string, val int) *SQL {
 func (s *SQL) ToSelect(columns ...string) (string, []interface{}) {
 	s.columns = append(s.columns, columns...)
 
-	defer s.Reset()
-
 	keyword := ""
 	if len(s.keywords) > 0 {
 		keyword = " " + strings.Join(s.keywords, " ")
@@ -255,25 +243,21 @@ func (s *SQL) ToSelect(columns ...string) (string, []interface{}) {
 	args = append(args, s.wheresArgs...)
 	args = append(args, s.havingsArgs...)
 
-	s.countWheres = s.countWheres[0:0]
-	s.countWheresArgs = s.countWheresArgs[0:0]
-	s.countWheres = append(s.countWheres, s.wheres...)
-	s.countWheresArgs = append(s.countWheresArgs, s.wheresArgs...)
-
 	return sq, args
 }
 
-func (s *SQL) ToCount() (string, []interface{}) {
-	where := ""
-	if len(s.countWheres) > 0 {
-		where = " WHERE " + strings.Join(s.countWheres, " AND ")
-	}
-
-	return fmt.Sprintf("SELECT count(*) AS count FROM %s%s", s.from, where), s.countWheresArgs
-}
-
-func (s *SQL) ToCountMySQL() (string, []interface{}) {
-	return "SELECT FOUND_ROWS()", make([]interface{}, 0, 0)
+func (s *SQL) ToCount() *SQL {
+	sc := new(SQL)
+	sc.table = s.table
+	sc.alias = s.alias
+	sc.columns = []string{"count(*) AS count"}
+	sc.from = s.from
+	sc.wheres = s.wheres
+	sc.wheresArgs = s.wheresArgs
+	sc.limit = -1
+	sc.offset = -1
+	sc.orm = s.orm
+	return sc
 }
 
 func (s *SQL) ToInsert() (string, []interface{}) {
@@ -359,41 +343,41 @@ func (s *SQL) SetORM(orm *ORM) *SQL {
 }
 
 func (s *SQL) RawSelect(model interface{}, columns ...string) (bool, error) {
-	return s.orm.RawSelect(model, s, columns...)
+	return s.orm.RawSelect(s, model, columns...)
+}
+
+func (s *SQL) RawSelectRow(vals ...interface{}) (bool, error) {
+	return s.orm.RawSelectRow(s, vals...)
 }
 
 func (s *SQL) RawCount() (int, error) {
 	return s.orm.RawCount(s)
 }
 
-func (s *SQL) RawCountMySQL() (int, error) {
-	return s.orm.RawCountMySQL(s)
-}
-
 func (s *SQL) RawUpdate(model interface{}, columns ...string) (sql.Result, error) {
-	return s.orm.RawUpdate(model, s, columns...)
+	return s.orm.RawUpdate(s, model, columns...)
 }
 
 func (s *SQL) RawDelete(model interface{}) (sql.Result, error) {
-	return s.orm.RawDelete(model, s)
+	return s.orm.RawDelete(s, model)
 }
 
 func (s *SQL) Select(model interface{}, columns ...string) bool {
-	return s.orm.Select(model, s, columns...)
+	return s.orm.Select(s, model, columns...)
+}
+
+func (s *SQL) SelectRow(vals ...interface{}) bool {
+	return s.orm.SelectRow(s, vals...)
 }
 
 func (s *SQL) Count() int {
 	return s.orm.Count(s)
 }
 
-func (s *SQL) CountMySQL() int {
-	return s.orm.CountMySQL(s)
-}
-
 func (s *SQL) Update(model interface{}, columns ...string) sql.Result {
-	return s.orm.Update(model, s, columns...)
+	return s.orm.Update(s, model, columns...)
 }
 
 func (s *SQL) Delete(model interface{}) sql.Result {
-	return s.orm.Delete(model, s)
+	return s.orm.Delete(s, model)
 }

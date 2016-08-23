@@ -2,6 +2,10 @@
 
 ORM library for Go Golang
 
+## Import
+
+	import "github.com/dotcoo/orm"
+
 ## Environment
 
 ### Database
@@ -29,15 +33,8 @@ ORM library for Go Golang
 	  update_time int(11) NOT NULL,
 	  PRIMARY KEY (id)
 	) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-}
 
-## Initialization
-
-### import
-
-	import "github.com/dotcoo/orm"
-
-### struct
+## Models
 
 	type User struct {
 		ID         int `orm:"pk"`
@@ -47,7 +44,7 @@ ORM library for Go Golang
 		RegIP      uint32
 		UpdateTime int `orm:"updated"`
 		UpdateIP   uint32
-		OterField  string `orm:"-"`
+		OtherField string `orm:"_"`
 	}
 
 	type Blog struct {
@@ -59,16 +56,18 @@ ORM library for Go Golang
 		UpdateTime int `orm:"updated"`
 	}
 
+## Initialization
+
 ### SetDB
 
 	db, err := sql.Open("mysql", "root:123456@/mingo?charset=utf8")
 	if err != nil {
 		panic(err)
 	}
-
 	orm.SetDB(db)
 
-### Prefix
+
+### SetPrefix
 
 	orm.SetPrefix("test_")
 
@@ -91,8 +90,7 @@ ORM library for Go Golang
 	user.Password = "123456"
 
 	result = orm.Add(user)
-	// result = orm.Add(user, "id, username")
-	// result = orm.Add(user, []string{"id", "username"}...)
+	// result = orm.Add(user, "id", "username")
 
 	log.Println(user.ID)
 	log.Println(result.LastInsertId())
@@ -103,8 +101,7 @@ ORM library for Go Golang
 	user.ID = 1
 
 	ok = orm.Get(user)
-	// ok = orm.Get(user, "id, username")
-	// ok = orm.Get(user, []string{"id", "username"}...)
+	// ok = orm.Get(user, "id", "username")
 
 	if ok {
 		log.Println(user)
@@ -117,8 +114,7 @@ ORM library for Go Golang
 	user = new(User)
 	user.Username = "dotcoo"
 	ok = orm.GetBy(user, "username")
-	// ok = orm.GetBy(user, "id, username")
-	// ok = orm.GetBy(user, []string{"id", "username"}...)
+	// ok = orm.GetBy(user, "id", "username")
 
 	if ok {
 		log.Println(user)
@@ -133,8 +129,7 @@ ORM library for Go Golang
 	user.Password = "654321"
 
 	result = orm.Up(user, "password")
-	// result = orm.Up(user, "id, username")
-	// result = orm.Up(user, []string{"id", "username"}...)
+	// result = orm.Up(user, "id", "username")
 
 	log.Println(result.RowsAffected())
 
@@ -156,8 +151,7 @@ ORM library for Go Golang
 	user.Password = "123456"
 
 	result = orm.Save(user)
-	// result = orm.Save(user, "id, username")
-	// result = orm.Save(user, []string{"id", "username"}...)
+	// result = orm.Save(user, "id", "username")
 
 	log.Println(result.LastInsertId())
 	log.Println(result.RowsAffected())
@@ -183,20 +177,18 @@ ORM library for Go Golang
 	user.Password = "123456"
 
 	result = orm.Insert(user, "id, username, password")
-	// result = orm.Insert(user, "id, username")
-	// result = orm.Insert(user, []string{"id", "username", "password"}...)
+	// result = orm.Insert(user, "id", "username", "password")
 
 	log.Println(result.LastInsertId())
 
-### Select Row
-
-	user = new(User)
+### Select Model
 
 	sq = orm.NewSQL().Where("username = ?", "dotcoo")
 
-	ok = orm.Select(user, sq)
-	// ok = orm.Select(user, sq, "id, username, password")
-	// ok = orm.Select(user, sq, []string{"id", "username", "password"}...)
+	user = new(User)
+
+	ok = orm.Select(sq, user)
+	// ok = orm.Select(sq, user, "id", "username", "password")
 
 	if ok {
 		log.Println(user)
@@ -204,29 +196,27 @@ ORM library for Go Golang
 		log.Println("user not find")
 	}
 
-### Select Rows
+### Select Models
 
 #### Slice
 
-	users = make([]User, 0, 10)
-
 	sq = orm.NewSQL().Where("username like ?", "dotcoo%")
 
-	ok = orm.Select(&users, sq)
-	// ok = orm.Select(&users, sq, "id, username, password")
-	// ok = orm.Select(&users, sq, []string{"id", "username", "password"}...)
+	users = make([]User, 0, 10)
+
+	ok = orm.Select(sq, &users)
+	// ok = orm.Select(sq, &users, "id", "username", "password")
 
 	log.Println(users)
 
 #### Map
 
-	users_map = make(map[int]User)
-
 	sq = orm.NewSQL().Where("username like ?", "dotcoo%")
 
-	ok = orm.Select(&users_map, sq)
-	// ok = orm.Select(&users_map, sq, "id, username, password")
-	// ok = orm.Select(&users_map, sq, []string{"id", "username", "password"}...)
+	users_map = make(map[int]User)
+
+	ok = orm.Select(sq, &users_map)
+	// ok = orm.Select(sq, &users_map, "id", "username", "password")
 
 	log.Println(users_map)
 
@@ -236,27 +226,37 @@ ORM library for Go Golang
 
 	log.Println(n)
 
+### Select Row
+
+	sq = orm.NewSQL("user").Columns("count(*)", "sum(id)", "avg(id)")
+
+	var count, sum int
+	var avg float64
+
+	ok = orm.SelectRow(sq, &count, &sum, &avg)
+
+	log.Println(users_map)
+
 ### Update
+
+	sq = orm.NewSQL().Where("username like ?", "dotcoo%")
 
 	user = new(User)
 	user.Password = "123321"
 
-	sq = orm.NewSQL().Where("username like ?", "dotcoo%")
-
-	result = orm.Update(user, sq, "password")
-	// result = orm.Update(user, sq, "*") // Warning: Update All Columns
-	// result = orm.Update(user, sq, "username, password")
-	// result = orm.Update(user, sq, []string{"username", "password"}...)
+	result = orm.Update(sq, user, "password")
+	// result = orm.Update(sq, user) // Error
+	// result = orm.Update(sq, user, "*") // Correct
 
 	log.Println(result.RowsAffected())
 
 ### Delete
 
-	user = new(User)
-
 	sq = orm.NewSQL().Where("username like ?", "dotcoo%")
 
-	result = orm.Delete(user, sq)
+	user = new(User)
+
+	result = orm.Delete(sq, user)
 
 	log.Println(result.RowsAffected())
 
@@ -326,11 +326,6 @@ ORM library for Go Golang
 
 	row, err := orm.Query("select * from test_user where id = ?", 10)
 
-### QueryOne
-
-	count := 0
-	ok, err = orm.QueryOne(&count, "select count(*) as c from test_user")
-
 ## Other Method
 
 ### BatchInsert
@@ -339,9 +334,7 @@ ORM library for Go Golang
 		{Username: "dotcoo3", Password: "123456", RegTime: 100},
 		{Username: "dotcoo4", Password: "123456", RegTime: 101},
 	}
-
-	orm.BatchInsert(&users, "username, password, reg_time")
-	// orm.BatchInsert(&users, []string{"username", "password"}...)
+	err = orm.BatchInsert(&users, "username, password, reg_time")
 
 ### BatchReplace
 
@@ -349,9 +342,7 @@ ORM library for Go Golang
 		{ID: 3, Username: "dotcoo3", Password: "654321"},
 		{ID: 4, Username: "dotcoo4", Password: "654321"},
 	}
-
-	orm.BatchReplace(&users, "id, username, password")
-	// orm.BatchReplace(&users, []string{"id", "username", "password"}...)
+	err = orm.BatchReplace(&users, "id, username, password")
 
 ### ForeignKey
 
@@ -364,11 +355,7 @@ ORM library for Go Golang
 	users_map = make(map[int]User)
 
 	err = orm.ForeignKey(&blogs, "user_id", &users_map, "id")
-	// err = orm.ForeignKey(&blogs, "user_id", &users_map, "id", "id, username, password")
-	// err = orm.ForeignKey(&blogs, "user_id", &users_map, "id", []string{"id", "username", "password"}...)
-	if err != nil {
-		panic(err)
-	}
+	// err = orm.ForeignKey(&blogs, "user_id", &users_map, "id", "id", "username", "password")
 
 	for _, b := range blogs {
 		log.Println(b.ID, b.Title, users_map[b.UserID].Username)
@@ -380,9 +367,9 @@ ORM library for Go Golang
 
 	otx, _ := o.Begin()
 
-	user = new(User)
 	sq = otx.NewSQL().Where("id = ?", 3).ForUpdate()
-	ok = otx.Select(user, sq)
+	user = new(User)
+	ok = otx.Select(sq, user)
 
 	if !ok {
 		otx.Rollback()

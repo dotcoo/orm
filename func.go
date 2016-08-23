@@ -30,20 +30,16 @@ func QueryRow(query string, args ...interface{}) (*sql.Row, error) {
 	return DefaultORM.QueryRow(query, args...)
 }
 
-func QueryOne(val interface{}, query string, args ...interface{}) (bool, error) {
-	return DefaultORM.QueryOne(val, query, args...)
+func Select(s *SQL, model interface{}, columns ...string) bool {
+	return DefaultORM.Select(s, model, columns...)
 }
 
-func Select(model interface{}, s *SQL, columns ...string) bool {
-	return DefaultORM.Select(model, s, columns...)
+func SelectRow(s *SQL, vals ...interface{}) bool {
+	return DefaultORM.SelectRow(s, vals...)
 }
 
 func Count(s *SQL) int {
 	return DefaultORM.Count(s)
-}
-
-func CountMySQL(s *SQL) int {
-	return DefaultORM.CountMySQL(s)
 }
 
 func Insert(model interface{}, columns ...string) sql.Result {
@@ -54,12 +50,12 @@ func Replace(model interface{}, columns ...string) sql.Result {
 	return DefaultORM.Replace(model, columns...)
 }
 
-func Update(model interface{}, s *SQL, columns ...string) sql.Result {
-	return DefaultORM.Update(model, s, columns...)
+func Update(s *SQL, model interface{}, columns ...string) sql.Result {
+	return DefaultORM.Update(s, model, columns...)
 }
 
-func Delete(model interface{}, s *SQL) sql.Result {
-	return DefaultORM.Delete(model, s)
+func Delete(s *SQL, model interface{}) sql.Result {
+	return DefaultORM.Delete(s, model)
 }
 
 func BatchInsert(models interface{}, columns ...string) error {
