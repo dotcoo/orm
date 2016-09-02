@@ -44,7 +44,7 @@ ORM library for Go Golang
 		RegIP      uint32
 		UpdateTime int `orm:"updated"`
 		UpdateIP   uint32
-		OtherField string `orm:"_"`
+		OtherField string `orm:"-"`
 	}
 
 	type Blog struct {

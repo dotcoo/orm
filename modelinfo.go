@@ -35,6 +35,14 @@ func field2Column(field string) (column string) {
 	return strings.ToLower(strings.Trim(re.ReplaceAllString(column, "_$1"), "_"))
 }
 
+func fieldsFunc (d rune) func (rune) bool {
+	return func (r rune) bool {
+		return r == d
+	}
+}
+
+var commaFieldsFunc = fieldsFunc(',')
+
 type ModelField struct {
 	Field   string
 	Column  string
@@ -147,15 +155,18 @@ CONTINUE_FIELD:
 		mf.Column = field2Column(tf.Name)
 		mf.Kind = tf.Type.Kind()
 
-		ss := strings.Fields(tf.Tag.Get("orm"))
+		ss := strings.FieldsFunc(tf.Tag.Get("orm"), commaFieldsFunc)
 		for _, s := range ss {
 			s = strings.ToLower(s)
 			switch s {
-			case "_":
+			case "-":
 				continue CONTINUE_FIELD
 			case "pk":
 				mf.PK = true
 				mi.PK = mf
+			case "unique":
+			case "index":
+			case "fk":
 			case "created":
 				mf.Created = true
 				mi.FieldsCreated = append(mi.FieldsCreated, mf.Field)

@@ -17,7 +17,7 @@ type User struct {
 	RegIP      uint32
 	UpdateTime int `orm:"updated"`
 	UpdateIP   uint32
-	OtherField string `orm:"_"`
+	OtherField string `orm:"-"`
 }
 
 type Category struct {
