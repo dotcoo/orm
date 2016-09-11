@@ -58,7 +58,7 @@ type User struct {
 	RegIP      uint32
 	UpdateTime int `orm:"updated"`
 	UpdateIP   uint32
-	OtherField string `orm:"_"`
+	OtherField string `orm:"-"`
 }
 
 type Blog struct {
@@ -201,7 +201,7 @@ func main() {
 
 	// ### Select Model
 
-	sq = orm.NewSQL().Where("username = ?", "dotcoo")
+	sq = orm.NewSelect().Where("username = ?", "dotcoo")
 
 	user = new(User)
 
@@ -218,7 +218,7 @@ func main() {
 
 	// #### Slice
 
-	sq = orm.NewSQL().Where("username like ?", "dotcoo%")
+	sq = orm.NewSelect().Where("username like ?", "dotcoo%")
 
 	users = make([]User, 0, 10)
 
@@ -229,7 +229,7 @@ func main() {
 
 	// #### Map
 
-	sq = orm.NewSQL().Where("username like ?", "dotcoo%")
+	sq = orm.NewSelect().Where("username like ?", "dotcoo%")
 
 	users_map = make(map[int]User)
 
@@ -246,18 +246,18 @@ func main() {
 
 	// ### Select Row
 
-	sq = orm.NewSQL("user").Columns("count(*)", "sum(id)", "avg(id)")
+	sq = orm.NewSelect("test_user").Columns("count(*)", "sum(id)", "avg(id)")
 
 	var count, sum int
 	var avg float64
 
-	ok = orm.SelectRow(sq, &count, &sum, &avg)
+	ok = orm.SelectVal(sq, &count, &sum, &avg)
 
 	log.Println(users_map)
 
 	// ### Update
 
-	sq = orm.NewSQL().Where("username like ?", "dotcoo%")
+	sq = orm.NewUpdate().Where("username like ?", "dotcoo%")
 
 	user = new(User)
 	user.Password = "123321"
@@ -270,7 +270,7 @@ func main() {
 
 	// ### Delete
 
-	sq = orm.NewSQL().Where("username like ?", "dotcoo%")
+	sq = orm.NewDelete().Where("username like ?", "dotcoo%")
 
 	user = new(User)
 
@@ -282,79 +282,70 @@ func main() {
 
 	// ### Where
 
-	log.Println(orm.NewSQL("test_user").Where("username = ?", "dotcoo").ToSelect())
+	log.Println(orm.NewSelect("test_user").Where("username = ?", "dotcoo").SQL())
 	// SELECT * FROM test_user WHERE username = ? [dotcoo]
 
 	// ### Where OR
 
-	log.Println(orm.NewSQL("test_user").Where("username = ? or username = ?", "dotcoo", "dotcoo2").ToSelect())
+	log.Println(orm.NewSelect("test_user").Where("username = ? or username = ?", "dotcoo", "dotcoo2").SQL())
 	// SELECT * FROM test_user WHERE username = ? or username = ? [dotcoo dotcoo2]
 
 	// ### Columns and Table
 
-	log.Println(orm.NewSQL().Columns("id", "username").From("test_user").Where("username = ?", "dotcoo").ToSelect())
+	log.Println(orm.NewSelect().Columns("id", "username").From("test_user").Where("username = ?", "dotcoo").SQL())
 	// SELECT id, username FROM test_user WHERE username = ? [dotcoo]
 
 	// ### Group
 
-	log.Println(orm.NewSQL("test_user").Group("username").Having("id > ?", 100).ToSelect())
+	log.Println(orm.NewSelect("test_user").Group("username").Having("id > ?", 100).SQL())
 	// SELECT * FROM test_user GROUP BY username HAVING id > ? [100]
 
 	// ### Order
 
-	log.Println(orm.NewSQL("test_user").Group("username desc, id asc").ToSelect())
+	log.Println(orm.NewSelect("test_user").Group("username desc, id asc").SQL())
 	// SELECT * FROM test_user GROUP BY username desc, id asc []
 
 	// ### Limit Offset
 
-	log.Println(orm.NewSQL("test_user").Limit(10).Offset(30).ToSelect())
+	log.Println(orm.NewSelect("test_user").Limit(10).Offset(30).SQL())
 	// SELECT * FROM test_user LIMIT 10 OFFSET 30 []
 
 	// ### Update
 
-	log.Println(orm.NewSQL("test_user").Set("password", "123123").Set("age", 28).Where("id = ?", 1).ToUpdate())
+	log.Println(orm.NewUpdate("test_user").Set("password", "123123").Set("age", 28).Where("id = ?", 1).SQL())
 	// UPDATE test_user SET password = ?, age = ? WHERE id = ? [123123 28 1]
 
 	// ### Delete
 
-	log.Println(orm.NewSQL("test_user").Where("id = ?", 1).ToDelete())
+	log.Println(orm.NewDelete("test_user").Where("id = ?", 1).SQL())
 	// DELETE FROM test_user WHERE id = ? [1]
 
 	// ### Plus
 
-	log.Println(orm.NewSQL("test_user").Plus("age", 1).Where("id = ?", 1).ToUpdate())
+	log.Println(orm.NewUpdate("test_user").Plus("age", 1).Where("id = ?", 1).SQL())
 	// UPDATE test_user SET age = age + ? WHERE id = ? [1 1]
 
 	// ### Incr
 
-	log.Println(orm.NewSQL("test_user").Incr("age", 1).Where("id = ?", 1).ToUpdate())
+	log.Println(orm.NewUpdate("test_user").Incr("age", 1).Where("id = ?", 1).SQL())
 	// UPDATE test_user SET age = last_insert_id(age + ?) WHERE id = ? [1 1]
 
 	// ## Custom SQL
 
 	// ### Exec
 
-	result, err = orm.Exec("delete from test_user where id < ?", 10)
-	if err != nil {
-		panic(err)
-	}
+	result = orm.Exec("delete from test_user where id < ?", 10)
 	log.Println(result.LastInsertId())
 	log.Println(result.RowsAffected())
 
 	// ### Query
 
-	rows, err := orm.Query("select * from test_user where id < ?", 10)
-	if err != nil {
-		panic(err)
-	}
+	rows := orm.Query("select * from test_user where id < ?", 10)
 	log.Println(rows)
 
 	// ### QueryRow
 
-	row, err := orm.Query("select * from test_user where id = ?", 10)
-	if err != nil {
-		panic(err)
-	}
+	row := orm.Query("select * from test_user where id = ?", 10)
 	log.Println(row)
 
 	// ## Other Method
@@ -366,11 +357,8 @@ func main() {
 		{Username: "dotcoo4", Password: "123456", RegTime: 101},
 	}
 
-	err = orm.BatchInsert(&users, "username, password, reg_time")
-	// err = orm.BatchInsert(&users, "username", "password")
-	if err != nil {
-		panic(err)
-	}
+	orm.BatchInsert(&users, "username, password, reg_time")
+	// orm.BatchInsert(&users, "username", "password", "reg_time")
 
 	// ### BatchReplace
 
@@ -379,11 +367,8 @@ func main() {
 		{ID: 4, Username: "dotcoo4", Password: "654321"},
 	}
 
-	err = orm.BatchReplace(&users, "id, username, password")
-	// err = orm.BatchReplace(&users, "id", "username", "password")
-	if err != nil {
-		panic(err)
-	}
+	orm.BatchReplace(&users, "id, username, password")
+	// orm.BatchReplace(&users, "id", "username", "password")
 
 	// ### ForeignKey
 
@@ -395,11 +380,8 @@ func main() {
 
 	users_map = make(map[int]User)
 
-	err = orm.ForeignKey(&blogs, "user_id", &users_map, "id")
-	// err = orm.ForeignKey(&blogs, "user_id", &users_map, "id", "id", "username", "password")
-	if err != nil {
-		panic(err)
-	}
+	orm.ForeignKey(&blogs, "user_id", &users_map, "id")
+	// orm.ForeignKey(&blogs, "user_id", &users_map, "id", "id", "username", "password")
 
 	for _, b := range blogs {
 		log.Println(b.ID, b.Title, users_map[b.UserID].Username)
@@ -409,9 +391,9 @@ func main() {
 
 	o := orm.DefaultORM
 
-	otx, _ := o.Begin()
+	otx := o.Begin()
 
-	sq = otx.NewSQL().Where("id = ?", 3).ForUpdate()
+	sq = otx.NewSelect().Where("id = ?", 3).ForUpdate()
 	user = new(User)
 	ok = otx.Select(sq, user)
 

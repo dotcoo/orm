@@ -35,8 +35,8 @@ func field2Column(field string) (column string) {
 	return strings.ToLower(strings.Trim(re.ReplaceAllString(column, "_$1"), "_"))
 }
 
-func fieldsFunc (d rune) func (rune) bool {
-	return func (r rune) bool {
+func fieldsFunc(d rune) func(rune) bool {
+	return func(r rune) bool {
 		return r == d
 	}
 }

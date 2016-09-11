@@ -15,18 +15,18 @@ func SetDB(db *sql.DB) {
 }
 
 func SetPrefix(prefix string) {
-	DefaultORM.Manager().SetPrefix(prefix)
+	DefaultORM.SetPrefix(prefix)
 }
 
-func Exec(query string, args ...interface{}) (sql.Result, error) {
+func Exec(query string, args ...interface{}) sql.Result {
 	return DefaultORM.Exec(query, args...)
 }
 
-func Query(query string, args ...interface{}) (*sql.Rows, error) {
+func Query(query string, args ...interface{}) *sql.Rows {
 	return DefaultORM.Query(query, args...)
 }
 
-func QueryRow(query string, args ...interface{}) (*sql.Row, error) {
+func QueryRow(query string, args ...interface{}) *sql.Row {
 	return DefaultORM.QueryRow(query, args...)
 }
 
@@ -34,8 +34,8 @@ func Select(s *SQL, model interface{}, columns ...string) bool {
 	return DefaultORM.Select(s, model, columns...)
 }
 
-func SelectRow(s *SQL, vals ...interface{}) bool {
-	return DefaultORM.SelectRow(s, vals...)
+func SelectVal(s *SQL, vals ...interface{}) bool {
+	return DefaultORM.SelectVal(s, vals...)
 }
 
 func Count(s *SQL) int {
@@ -58,12 +58,12 @@ func Delete(s *SQL, model interface{}) sql.Result {
 	return DefaultORM.Delete(s, model)
 }
 
-func BatchInsert(models interface{}, columns ...string) error {
-	return DefaultORM.BatchInsert(models, columns...)
+func BatchInsert(models interface{}, columns ...string) {
+	DefaultORM.BatchInsert(models, columns...)
 }
 
-func BatchReplace(models interface{}, columns ...string) error {
-	return DefaultORM.BatchReplace(models, columns...)
+func BatchReplace(models interface{}, columns ...string) {
+	DefaultORM.BatchReplace(models, columns...)
 }
 
 func Add(model interface{}, columns ...string) sql.Result {
@@ -90,6 +90,6 @@ func Save(model interface{}, columns ...string) sql.Result {
 	return DefaultORM.Save(model, columns...)
 }
 
-func ForeignKey(sources interface{}, fk_column string, models interface{}, pk_column string, columns ...string) error {
-	return DefaultORM.ForeignKey(sources, fk_column, models, pk_column, columns...)
+func ForeignKey(sources interface{}, fk_column string, models interface{}, pk_column string, columns ...string) {
+	DefaultORM.ForeignKey(sources, fk_column, models, pk_column, columns...)
 }

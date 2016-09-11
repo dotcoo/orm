@@ -183,7 +183,7 @@ ORM library for Go Golang
 
 ### Select Model
 
-	sq = orm.NewSQL().Where("username = ?", "dotcoo")
+	sq = orm.NewSelect().Where("username = ?", "dotcoo")
 
 	user = new(User)
 
@@ -200,7 +200,7 @@ ORM library for Go Golang
 
 #### Slice
 
-	sq = orm.NewSQL().Where("username like ?", "dotcoo%")
+	sq = orm.NewSelect().Where("username like ?", "dotcoo%")
 
 	users = make([]User, 0, 10)
 
@@ -211,7 +211,7 @@ ORM library for Go Golang
 
 #### Map
 
-	sq = orm.NewSQL().Where("username like ?", "dotcoo%")
+	sq = orm.NewSelect().Where("username like ?", "dotcoo%")
 
 	users_map = make(map[int]User)
 
@@ -228,18 +228,18 @@ ORM library for Go Golang
 
 ### Select Row
 
-	sq = orm.NewSQL("user").Columns("count(*)", "sum(id)", "avg(id)")
+	sq = orm.NewSelect("user").Columns("count(*)", "sum(id)", "avg(id)")
 
 	var count, sum int
 	var avg float64
 
-	ok = orm.SelectRow(sq, &count, &sum, &avg)
+	ok = orm.SelectVal(sq, &count, &sum, &avg)
 
 	log.Println(users_map)
 
 ### Update
 
-	sq = orm.NewSQL().Where("username like ?", "dotcoo%")
+	sq = orm.NewUpdate().Where("username like ?", "dotcoo%")
 
 	user = new(User)
 	user.Password = "123321"
@@ -252,7 +252,7 @@ ORM library for Go Golang
 
 ### Delete
 
-	sq = orm.NewSQL().Where("username like ?", "dotcoo%")
+	sq = orm.NewDelete().Where("username like ?", "dotcoo%")
 
 	user = new(User)
 
@@ -264,67 +264,67 @@ ORM library for Go Golang
 
 ### Where
 
-	orm.NewSQL("test_user").Where("username = ?", "dotcoo").ToSelect()
+	orm.NewSelect("test_user").Where("username = ?", "dotcoo").SQL()
 	// SELECT * FROM test_user WHERE username = ? [dotcoo]
 
 ### Where OR
 
-	orm.NewSQL("test_user").Where("username = ? or username = ?", "dotcoo", "dotcoo2").ToSelect()
+	orm.NewSelect("test_user").Where("username = ? or username = ?", "dotcoo", "dotcoo2").SQL()
 	// SELECT * FROM test_user WHERE username = ? or username = ? [dotcoo dotcoo2]
 
 ### Columns and Table
 
-	orm.NewSQL().Columns("id", "username").From("test_user").Where("username = ?", "dotcoo").ToSelect()
+	orm.NewSelect().Columns("id", "username").From("test_user").Where("username = ?", "dotcoo").SQL()
 	// SELECT id, username FROM test_user WHERE username = ? [dotcoo]
 
 ### Group
 
-	orm.NewSQL("test_user").Group("username").Having("id > ?", 100).ToSelect()
+	orm.NewSelect("test_user").Group("username").Having("id > ?", 100).SQL()
 	// SELECT * FROM test_user GROUP BY username HAVING id > ? [100]
 
 ### Order
 
-	orm.NewSQL("test_user").Group("username desc, id asc").ToSelect()
+	orm.NewSelect("test_user").Group("username desc, id asc").SQL()
 	// SELECT * FROM test_user GROUP BY username desc, id asc []
 
 ### Limit Offset
 
-	orm.NewSQL("test_user").Limit(10).Offset(30).ToSelect()
+	orm.NewSelect("test_user").Limit(10).Offset(30).SQL()
 	// SELECT * FROM test_user LIMIT 10 OFFSET 30 []
 
 ### Update
 
-	orm.NewSQL("test_user").Set("password", "123123").Set("age", 28).Where("id = ?", 1).ToUpdate()
+	orm.NewUpdate("test_user").Set("password", "123123").Set("age", 28).Where("id = ?", 1).SQL()
 	// UPDATE test_user SET password = ?, age = ? WHERE id = ? [123123 28 1]
 
 ### Delete
 
-	orm.NewSQL("test_user").Where("id = ?", 1).ToDelete()
+	orm.NewDelete("test_user").Where("id = ?", 1).SQL()
 	// DELETE FROM test_user WHERE id = ? [1]
 
 ### Plus
 
-	orm.NewSQL("test_user").Plus("age", 1).Where("id = ?", 1).ToUpdate()
+	orm.NewUpdate("test_user").Plus("age", 1).Where("id = ?", 1).SQL()
 	// UPDATE test_user SET age = age + ? WHERE id = ? [1 1]
 
 ### Incr
 
-	orm.NewSQL("test_user").Incr("age", 1).Where("id = ?", 1).ToUpdate()
+	orm.NewUpdate("test_user").Incr("age", 1).Where("id = ?", 1).SQL()
 	// UPDATE test_user SET age = last_insert_id(age + ?) WHERE id = ? [1 1]
 
 ## Custom SQL
 
 ### Exec
 
-	result, err = orm.Exec("delete from test_user where id < ?", 10)
+	result = orm.Exec("delete from test_user where id < ?", 10)
 
 ### Query
 
-	rows, err := orm.Query("select * from test_user where id < ?", 10)
+	rows := orm.Query("select * from test_user where id < ?", 10)
 
 ### QueryRow
 
-	row, err := orm.Query("select * from test_user where id = ?", 10)
+	row := orm.Query("select * from test_user where id = ?", 10)
 
 ## Other Method
 
@@ -334,7 +334,7 @@ ORM library for Go Golang
 		{Username: "dotcoo3", Password: "123456", RegTime: 100},
 		{Username: "dotcoo4", Password: "123456", RegTime: 101},
 	}
-	err = orm.BatchInsert(&users, "username, password, reg_time")
+	orm.BatchInsert(&users, "username, password, reg_time")
 
 ### BatchReplace
 
@@ -342,7 +342,7 @@ ORM library for Go Golang
 		{ID: 3, Username: "dotcoo3", Password: "654321"},
 		{ID: 4, Username: "dotcoo4", Password: "654321"},
 	}
-	err = orm.BatchReplace(&users, "id, username, password")
+	orm.BatchReplace(&users, "id, username, password")
 
 ### ForeignKey
 
@@ -354,8 +354,8 @@ ORM library for Go Golang
 
 	users_map = make(map[int]User)
 
-	err = orm.ForeignKey(&blogs, "user_id", &users_map, "id")
-	// err = orm.ForeignKey(&blogs, "user_id", &users_map, "id", "id", "username", "password")
+	orm.ForeignKey(&blogs, "user_id", &users_map, "id")
+	// orm.ForeignKey(&blogs, "user_id", &users_map, "id", "id", "username", "password")
 
 	for _, b := range blogs {
 		log.Println(b.ID, b.Title, users_map[b.UserID].Username)
@@ -365,9 +365,9 @@ ORM library for Go Golang
 
 	o := orm.DefaultORM
 
-	otx, _ := o.Begin()
+	otx := o.Begin()
 
-	sq = otx.NewSQL().Where("id = ?", 3).ForUpdate()
+	sq = otx.NewSelect().Where("id = ?", 3).ForUpdate()
 	user = new(User)
 	ok = otx.Select(sq, user)
 

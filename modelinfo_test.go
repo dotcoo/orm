@@ -10,7 +10,7 @@ import (
 )
 
 type User struct {
-	ID         int `orm:"pk"`
+	ID         int64 `orm:"pk"`
 	Username   string
 	Password   string
 	RegTime    int `orm:"created"`
@@ -67,7 +67,7 @@ var result *ModelInfo
 func init() {
 	user := new(User)
 
-	id := &ModelField{Field: "ID", Column: "id", PK: true, Kind: reflect.Int, Created: false, Updated: false}
+	id := &ModelField{Field: "ID", Column: "id", PK: true, Kind: reflect.Int64, Created: false, Updated: false}
 	username := &ModelField{Field: "Username", Column: "username", PK: false, Kind: reflect.String, Created: false, Updated: false}
 	password := &ModelField{Field: "Password", Column: "password", PK: false, Kind: reflect.String, Created: false, Updated: false}
 	reg_time := &ModelField{Field: "RegTime", Column: "reg_time", PK: false, Kind: reflect.Int, Created: true, Updated: false}

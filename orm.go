@@ -52,6 +52,10 @@ func (o *ORM) Manager() *ModelInfoManager {
 	return DefaultModelInfoManager
 }
 
+func (o *ORM) NewManager() {
+	o.modelInfoManager = NewModelInfoManager()
+}
+
 // query
 
 func (o *ORM) getTxOrDB() dber {
@@ -67,7 +71,7 @@ func (o *ORM) getTxOrDB() dber {
 	panic("DB is nil!")
 }
 
-func (o *ORM) Exec(query string, args ...interface{}) (sql.Result, error) {
+func (o *ORM) RawExec(query string, args ...interface{}) (sql.Result, error) {
 	if strings.IndexByte(query, '\'') >= 0 {
 		panic("SQL statement cannot contain single quotes!")
 	}
@@ -78,7 +82,7 @@ func (o *ORM) Exec(query string, args ...interface{}) (sql.Result, error) {
 	return result, nil
 }
 
-func (o *ORM) Query(query string, args ...interface{}) (*sql.Rows, error) {
+func (o *ORM) RawQuery(query string, args ...interface{}) (*sql.Rows, error) {
 	if strings.IndexByte(query, '\'') >= 0 {
 		panic("SQL statement cannot contain single quotes!")
 	}
@@ -89,7 +93,7 @@ func (o *ORM) Query(query string, args ...interface{}) (*sql.Rows, error) {
 	return rows, nil
 }
 
-func (o *ORM) QueryRow(query string, args ...interface{}) (*sql.Row, error) {
+func (o *ORM) RawQueryRow(query string, args ...interface{}) (*sql.Row, error) {
 	if strings.IndexByte(query, '\'') >= 0 {
 		panic("SQL statement cannot contain single quotes!")
 	}
@@ -98,7 +102,7 @@ func (o *ORM) QueryRow(query string, args ...interface{}) (*sql.Row, error) {
 
 // transaction
 
-func (o *ORM) Begin() (*ORM, error) {
+func (o *ORM) RawBegin() (*ORM, error) {
 	var err error
 	otx := NewORM(o.db)
 	otx.tx, err = o.db.Begin()
@@ -108,13 +112,13 @@ func (o *ORM) Begin() (*ORM, error) {
 	return otx, nil
 }
 
-func (o *ORM) Commit() error {
+func (o *ORM) RawCommit() error {
 	err := o.tx.Commit()
 	o.tx = nil
 	return err
 }
 
-func (o *ORM) Rollback() error {
+func (o *ORM) RawRollback() error {
 	err := o.tx.Rollback()
 	o.tx = nil
 	return err
@@ -135,8 +139,8 @@ func (o *ORM) RawSelect(s *SQL, model interface{}, columns ...string) (bool, err
 
 	s.From(mi.Table).Columns(columns...)
 
-	query, args := s.ToSelect()
-	rows, err := o.Query(query, args...)
+	query, args := s.SQL()
+	rows, err := o.RawQuery(query, args...)
 	if err != nil {
 		return false, err
 	}
@@ -216,9 +220,9 @@ func (o *ORM) RawSelect(s *SQL, model interface{}, columns ...string) (bool, err
 	return true, nil
 }
 
-func (o *ORM) RawSelectRow(s *SQL, vals ...interface{}) (bool, error) {
-	query, args := s.ToSelect()
-	row, err := o.QueryRow(query, args...)
+func (o *ORM) RawSelectVal(s *SQL, vals ...interface{}) (bool, error) {
+	query, args := s.SQL()
+	row, err := o.RawQueryRow(query, args...)
 	if err != nil {
 		return false, err
 	}
@@ -233,7 +237,7 @@ func (o *ORM) RawSelectRow(s *SQL, vals ...interface{}) (bool, error) {
 }
 
 func (o *ORM) RawCount(s *SQL) (count int, err error) {
-	_, err = o.RawSelectRow(s.ToCount(), &count)
+	_, err = o.RawSelectVal(s.NewCount(), &count)
 	return count, err
 }
 
@@ -298,11 +302,11 @@ func (o *ORM) RawInsert(model interface{}, columns ...string) (sql.Result, error
 		}
 	}
 
-	s := o.NewSQL().From(mi.Table)
+	s := NewInsert().From(mi.Table)
 	setModel(s, v, mi, false, columns...)
 
-	query, args := s.ToInsert()
-	result, err := o.Exec(query, args...)
+	query, args := s.SQL()
+	result, err := o.RawExec(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -319,11 +323,11 @@ func (o *ORM) RawInsert(model interface{}, columns ...string) (sql.Result, error
 func (o *ORM) RawReplace(model interface{}, columns ...string) (sql.Result, error) {
 	mi, v := o.Manager().ValueOf(model)
 
-	s := o.NewSQL().From(mi.Table)
+	s := NewReplace().From(mi.Table)
 	setModel(s, v, mi, false, columns...)
 
-	query, args := s.ToReplace()
-	return o.Exec(query, args...)
+	query, args := s.SQL()
+	return o.RawExec(query, args...)
 }
 
 func (o *ORM) RawUpdate(s *SQL, model interface{}, columns ...string) (sql.Result, error) {
@@ -344,8 +348,8 @@ func (o *ORM) RawUpdate(s *SQL, model interface{}, columns ...string) (sql.Resul
 	s.From(mi.Table)
 	setModel(s, v, mi, true, columns...)
 
-	query, args := s.ToUpdate()
-	return o.Exec(query, args...)
+	query, args := s.SQL()
+	return o.RawExec(query, args...)
 }
 
 func (o *ORM) RawDelete(s *SQL, model interface{}) (sql.Result, error) {
@@ -353,8 +357,8 @@ func (o *ORM) RawDelete(s *SQL, model interface{}) (sql.Result, error) {
 
 	s.From(mi.Table)
 
-	query, args := s.ToDelete()
-	return o.Exec(query, args...)
+	query, args := s.SQL()
+	return o.RawExec(query, args...)
 }
 
 func (o *ORM) batchInsertOrReplace(mode string, lineBatch int, models interface{}, columns ...string) error {
@@ -379,7 +383,7 @@ func (o *ORM) batchInsertOrReplace(mode string, lineBatch int, models interface{
 		}
 		if (i+1)%lineBatch == 0 {
 			query := fmt.Sprintf("%s INTO `%s` (`%s`) VALUES %s", mode, mi.Table, column, strings.Repeat(value, lineBatch)[1:])
-			_, err := o.Exec(query, args...)
+			_, err := o.RawExec(query, args...)
 			if err != nil {
 				return err
 			}
@@ -388,7 +392,7 @@ func (o *ORM) batchInsertOrReplace(mode string, lineBatch int, models interface{
 	}
 	if models_len%lineBatch > 0 {
 		query := fmt.Sprintf("%s INTO `%s` (`%s`) VALUES %s", mode, mi.Table, column, strings.Repeat(value, models_len%lineBatch)[1:])
-		_, err := o.Exec(query, args...)
+		_, err := o.RawExec(query, args...)
 		if err != nil {
 			return err
 		}
@@ -396,19 +400,19 @@ func (o *ORM) batchInsertOrReplace(mode string, lineBatch int, models interface{
 	return nil
 }
 
-func (o *ORM) BatchInsert(models interface{}, columns ...string) error {
+func (o *ORM) RawBatchInsert(models interface{}, columns ...string) error {
 	return o.batchInsertOrReplace("INSERT", o.BatchRow, models, columns...)
 }
 
-func (o *ORM) BatchReplace(models interface{}, columns ...string) error {
+func (o *ORM) RawBatchReplace(models interface{}, columns ...string) error {
 	return o.batchInsertOrReplace("REPLACE", o.BatchRow, models, columns...)
 }
 
 // quick method
 
-func whereById(o *ORM, model interface{}) *SQL {
+func whereById(s *SQL, o *ORM, model interface{}) *SQL {
 	mi, v := o.Manager().ValueOf(model)
-	return o.NewSQL().Where(fmt.Sprintf("`%s` = ?", mi.PK.Column), v.FieldByName(mi.PK.Field).Interface())
+	return s.Where(fmt.Sprintf("`%s` = ?", mi.PK.Column), v.FieldByName(mi.PK.Field).Interface())
 }
 
 func (o *ORM) RawAdd(model interface{}, columns ...string) (sql.Result, error) {
@@ -416,7 +420,7 @@ func (o *ORM) RawAdd(model interface{}, columns ...string) (sql.Result, error) {
 }
 
 func (o *ORM) RawGet(model interface{}, columns ...string) (bool, error) {
-	return o.RawSelect(whereById(o, model), model, columns...)
+	return o.RawSelect(whereById(NewSelect(), o, model), model, columns...)
 }
 
 func (o *ORM) RawGetBy(model interface{}, columns ...string) (bool, error) {
@@ -424,7 +428,7 @@ func (o *ORM) RawGetBy(model interface{}, columns ...string) (bool, error) {
 	if len(columns) == 0 {
 		panic("columns not can null!")
 	}
-	sq := o.NewSQL()
+	sq := NewSelect()
 	for _, column := range columns {
 		sq.Where(fmt.Sprintf("`%s` = ?", column), v.FieldByName(mi.Field(column).Field).Interface())
 	}
@@ -432,11 +436,11 @@ func (o *ORM) RawGetBy(model interface{}, columns ...string) (bool, error) {
 }
 
 func (o *ORM) RawUp(model interface{}, columns ...string) (sql.Result, error) {
-	return o.RawUpdate(whereById(o, model), model, columns...)
+	return o.RawUpdate(whereById(NewUpdate(), o, model), model, columns...)
 }
 
 func (o *ORM) RawDel(model interface{}) (sql.Result, error) {
-	return o.RawDelete(whereById(o, model), model)
+	return o.RawDelete(whereById(NewDelete(), o, model), model)
 }
 
 func (o *ORM) RawSave(model interface{}, columns ...string) (sql.Result, error) {
@@ -451,7 +455,7 @@ func (o *ORM) RawSave(model interface{}, columns ...string) (sql.Result, error) 
 
 // foreign key
 
-func (o *ORM) ForeignKey(sources interface{}, fk_column string, models interface{}, pk_column string, columns ...string) error {
+func (o *ORM) RawForeignKey(sources interface{}, fk_column string, models interface{}, pk_column string, columns ...string) error {
 	mi, vs := o.Manager().ValueOf(sources)
 
 	if vs.Len() == 0 {
@@ -485,121 +489,29 @@ func (o *ORM) ForeignKey(sources interface{}, fk_column string, models interface
 		ids = append(ids, id)
 	}
 
-	s := o.NewSQL().WhereIn(fmt.Sprintf("`%s` in (?)", pk_column), ids...)
+	s := NewSelect().WhereIn(fmt.Sprintf("`%s` in (?)", pk_column), ids...)
 	_, err := o.RawSelect(s, models, columns...)
 	return err
 }
 
 // SQL
 
-func (o *ORM) NewSQL(table ...string) *SQL {
-	s := NewSQL(table...)
-	s.SetORM(o)
-	return s
+func (o *ORM) NewSelect(table ...string) *SQL {
+	return NewSelect(table...).SetORM(o)
 }
 
-// No Err
-
-func (o *ORM) Select(s *SQL, model interface{}, columns ...string) bool {
-	exist, err := o.RawSelect(s, model, columns...)
-	if err != nil {
-		panic(err)
-	}
-	return exist
+func (o *ORM) NewInsert(table ...string) *SQL {
+	return NewInsert(table...).SetORM(o)
 }
 
-func (o *ORM) SelectRow(s *SQL, vals ...interface{}) bool {
-	exist, err := o.RawSelectRow(s, vals...)
-	if err != nil {
-		panic(err)
-	}
-	return exist
+func (o *ORM) NewReplace(table ...string) *SQL {
+	return NewReplace(table...).SetORM(o)
 }
 
-func (o *ORM) Count(s *SQL) int {
-	count, err := o.RawCount(s)
-	if err != nil {
-		panic(err)
-	}
-	return count
+func (o *ORM) NewUpdate(table ...string) *SQL {
+	return NewUpdate(table...).SetORM(o)
 }
 
-func (o *ORM) Insert(model interface{}, columns ...string) sql.Result {
-	result, err := o.RawInsert(model, columns...)
-	if err != nil {
-		panic(err)
-	}
-	return result
-}
-
-func (o *ORM) Replace(model interface{}, columns ...string) sql.Result {
-	result, err := o.RawReplace(model, columns...)
-	if err != nil {
-		panic(err)
-	}
-	return result
-}
-
-func (o *ORM) Update(s *SQL, model interface{}, columns ...string) sql.Result {
-	result, err := o.RawUpdate(s, model, columns...)
-	if err != nil {
-		panic(err)
-	}
-	return result
-}
-
-func (o *ORM) Delete(s *SQL, model interface{}) sql.Result {
-	result, err := o.RawDelete(s, model)
-	if err != nil {
-		panic(err)
-	}
-	return result
-}
-
-func (o *ORM) Add(model interface{}, columns ...string) sql.Result {
-	result, err := o.RawAdd(model, columns...)
-	if err != nil {
-		panic(err)
-	}
-	return result
-}
-
-func (o *ORM) Get(model interface{}, columns ...string) bool {
-	exist, err := o.RawGet(model, columns...)
-	if err != nil {
-		panic(err)
-	}
-	return exist
-}
-
-func (o *ORM) GetBy(model interface{}, columns ...string) bool {
-	exist, err := o.RawGetBy(model, columns...)
-	if err != nil {
-		panic(err)
-	}
-	return exist
-}
-
-func (o *ORM) Up(model interface{}, columns ...string) sql.Result {
-	result, err := o.RawUp(model, columns...)
-	if err != nil {
-		panic(err)
-	}
-	return result
-}
-
-func (o *ORM) Del(model interface{}) sql.Result {
-	result, err := o.RawDel(model)
-	if err != nil {
-		panic(err)
-	}
-	return result
-}
-
-func (o *ORM) Save(model interface{}, columns ...string) sql.Result {
-	result, err := o.RawSave(model, columns...)
-	if err != nil {
-		panic(err)
-	}
-	return result
+func (o *ORM) NewDelete(table ...string) *SQL {
+	return NewDelete(table...).SetORM(o)
 }

@@ -5,12 +5,21 @@
 package orm
 
 import (
-	"database/sql"
 	"fmt"
 	"strings"
 )
 
+const (
+	SQLSelect = iota
+	SQLCount
+	SQLInsert
+	SQLReplace
+	SQLUpdate
+	SQLDelete
+)
+
 type SQL struct {
+	mode            int           // sql mode
 	table           string        // table
 	alias           string        // table alias
 	keywords        []string      // keywords
@@ -33,8 +42,9 @@ type SQL struct {
 	orm             *ORM          // ORM
 }
 
-func NewSQL(table ...string) *SQL {
+func NewSQL(mode int, table ...string) *SQL {
 	s := new(SQL)
+	s.mode = mode
 	s.From(table...)
 	s.cols = make([]string, 0, 20)
 	s.sets = make([]string, 0, 20)
@@ -46,6 +56,26 @@ func NewSQL(table ...string) *SQL {
 	s.offset = -1
 	s.orm = DefaultORM
 	return s
+}
+
+func NewSelect(table ...string) *SQL {
+	return NewSQL(SQLSelect, table...)
+}
+
+func NewInsert(table ...string) *SQL {
+	return NewSQL(SQLInsert, table...)
+}
+
+func NewReplace(table ...string) *SQL {
+	return NewSQL(SQLReplace, table...)
+}
+
+func NewUpdate(table ...string) *SQL {
+	return NewSQL(SQLUpdate, table...)
+}
+
+func NewDelete(table ...string) *SQL {
+	return NewSQL(SQLDelete, table...)
 }
 
 func (s *SQL) Reset() *SQL {
@@ -195,7 +225,7 @@ func (s *SQL) Incr(col string, val int) *SQL {
 
 // build sql
 
-func (s *SQL) ToSelect(columns ...string) (string, []interface{}) {
+func (s *SQL) toSelect(columns ...string) (string, []interface{}) {
 	s.columns = append(s.columns, columns...)
 
 	keyword := ""
@@ -246,8 +276,9 @@ func (s *SQL) ToSelect(columns ...string) (string, []interface{}) {
 	return sq, args
 }
 
-func (s *SQL) ToCount() *SQL {
+func (s *SQL) NewCount() *SQL {
 	sc := new(SQL)
+	sc.mode = SQLCount
 	sc.table = s.table
 	sc.alias = s.alias
 	sc.columns = []string{"count(*) AS count"}
@@ -260,7 +291,7 @@ func (s *SQL) ToCount() *SQL {
 	return sc
 }
 
-func (s *SQL) ToInsert() (string, []interface{}) {
+func (s *SQL) toInsert() (string, []interface{}) {
 	if len(s.sets) == 0 {
 		panic("Insert sets is empty!")
 	}
@@ -270,7 +301,7 @@ func (s *SQL) ToInsert() (string, []interface{}) {
 	return fmt.Sprintf("INSERT INTO %s (%s) VALUES (%s)", s.from, strings.Join(s.cols, ", "), strings.Repeat(", ?", len(s.cols))[2:]), s.setsArgs
 }
 
-func (s *SQL) ToReplace() (string, []interface{}) {
+func (s *SQL) toReplace() (string, []interface{}) {
 	if len(s.sets) == 0 {
 		panic("Replace sets is empty!")
 	}
@@ -280,7 +311,7 @@ func (s *SQL) ToReplace() (string, []interface{}) {
 	return fmt.Sprintf("REPLACE INTO %s (%s) VALUES (%s)", s.from, strings.Join(s.cols, ", "), strings.Repeat(", ?", len(s.cols))[2:]), s.setsArgs
 }
 
-func (s *SQL) ToUpdate() (string, []interface{}) {
+func (s *SQL) toUpdate() (string, []interface{}) {
 	if len(s.sets) == 0 {
 		panic("Update sets is empty!")
 	}
@@ -310,7 +341,7 @@ func (s *SQL) ToUpdate() (string, []interface{}) {
 	return sq, args
 }
 
-func (s *SQL) ToDelete() (string, []interface{}) {
+func (s *SQL) toDelete() (string, []interface{}) {
 	if len(s.wheres) == 0 {
 		panic("Delete wheres is empty!")
 	}
@@ -330,54 +361,29 @@ func (s *SQL) ToDelete() (string, []interface{}) {
 	return fmt.Sprintf("DELETE FROM %s WHERE %s%s%s", s.from, where, order, limit), s.wheresArgs
 }
 
-func (s *SQL) String() string {
-	sq, args := s.ToSelect()
-	return fmt.Sprintf("%s %v", sq, args)
+func (s *SQL) SQL() (string, []interface{}) {
+	switch s.mode {
+	case SQLSelect, SQLCount:
+		return s.toSelect()
+	case SQLInsert:
+		return s.toInsert()
+	case SQLReplace:
+		return s.toReplace()
+	case SQLUpdate:
+		return s.toUpdate()
+	case SQLDelete:
+		return s.toDelete()
+	default:
+		panic("not reached")
+	}
 }
 
-// orm
+func (s *SQL) String() string {
+	sq, args := s.SQL()
+	return fmt.Sprintf("%s %v", sq, args)
+}
 
 func (s *SQL) SetORM(orm *ORM) *SQL {
 	s.orm = orm
 	return s
-}
-
-func (s *SQL) RawSelect(model interface{}, columns ...string) (bool, error) {
-	return s.orm.RawSelect(s, model, columns...)
-}
-
-func (s *SQL) RawSelectRow(vals ...interface{}) (bool, error) {
-	return s.orm.RawSelectRow(s, vals...)
-}
-
-func (s *SQL) RawCount() (int, error) {
-	return s.orm.RawCount(s)
-}
-
-func (s *SQL) RawUpdate(model interface{}, columns ...string) (sql.Result, error) {
-	return s.orm.RawUpdate(s, model, columns...)
-}
-
-func (s *SQL) RawDelete(model interface{}) (sql.Result, error) {
-	return s.orm.RawDelete(s, model)
-}
-
-func (s *SQL) Select(model interface{}, columns ...string) bool {
-	return s.orm.Select(s, model, columns...)
-}
-
-func (s *SQL) SelectRow(vals ...interface{}) bool {
-	return s.orm.SelectRow(s, vals...)
-}
-
-func (s *SQL) Count() int {
-	return s.orm.Count(s)
-}
-
-func (s *SQL) Update(model interface{}, columns ...string) sql.Result {
-	return s.orm.Update(s, model, columns...)
-}
-
-func (s *SQL) Delete(model interface{}) sql.Result {
-	return s.orm.Delete(s, model)
 }
