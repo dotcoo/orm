@@ -10,12 +10,17 @@ import (
 )
 
 const (
-	SQLSelect = iota
-	SQLCount
-	SQLInsert
-	SQLReplace
-	SQLUpdate
-	SQLDelete
+	sqlAnd = " AND "
+	sqlOr  = " OR "
+)
+
+const (
+	sqlSelect = iota
+	sqlCount
+	sqlInsert
+	sqlReplace
+	sqlUpdate
+	sqlDelete
 )
 
 type SQL struct {
@@ -59,23 +64,23 @@ func NewSQL(mode int, table ...string) *SQL {
 }
 
 func NewSelect(table ...string) *SQL {
-	return NewSQL(SQLSelect, table...)
+	return NewSQL(sqlSelect, table...)
 }
 
 func NewInsert(table ...string) *SQL {
-	return NewSQL(SQLInsert, table...)
+	return NewSQL(sqlInsert, table...)
 }
 
 func NewReplace(table ...string) *SQL {
-	return NewSQL(SQLReplace, table...)
+	return NewSQL(sqlReplace, table...)
 }
 
 func NewUpdate(table ...string) *SQL {
-	return NewSQL(SQLUpdate, table...)
+	return NewSQL(sqlUpdate, table...)
 }
 
 func NewDelete(table ...string) *SQL {
-	return NewSQL(SQLDelete, table...)
+	return NewSQL(sqlDelete, table...)
 }
 
 func (s *SQL) Reset() *SQL {
@@ -147,17 +152,47 @@ func (s *SQL) Join(table, alias, cond string) *SQL {
 	return s
 }
 
-func (s *SQL) Where(where string, args ...interface{}) *SQL {
-	s.wheres = append(s.wheres, where)
-	s.wheresArgs = append(s.wheresArgs, args...)
+func (s *SQL) where(wheres *[]string, wheresArgs *[]interface{}, and string, where string, args ...interface{}) *SQL {
+	switch {
+	case where == "(":
+		*wheres = append(*wheres, and, where)
+	case where == ")":
+		*wheres = append(*wheres, where)
+	case and == sqlAnd, and == sqlOr:
+		if len(*wheres) == 0 || (*wheres)[len(*wheres)-1] == "(" {
+			*wheres = append(*wheres, where)
+		} else {
+			*wheres = append(*wheres, and, where)
+		}
+		*wheresArgs = append(*wheresArgs, args...)
+	default:
+		panic("not reached")
+	}
 	return s
 }
 
-func (s *SQL) WhereIn(where string, args ...interface{}) *SQL {
+func (s *SQL) Where(where string, args ...interface{}) *SQL {
+	return s.where(&s.wheres, &s.wheresArgs, sqlAnd, where, args...)
+}
+
+func (s *SQL) WhereOr(where string, args ...interface{}) *SQL {
+	return s.where(&s.wheres, &s.wheresArgs, sqlOr, where, args...)
+}
+
+func (s *SQL) whereIn(and string, where string, args ...interface{}) *SQL {
+	if len(args) == 0 {
+		panic("args is null!")
+	}
 	where = strings.Replace(where, "?", strings.Repeat(", ?", len(args))[2:], 1)
-	s.wheres = append(s.wheres, where)
-	s.wheresArgs = append(s.wheresArgs, args...)
-	return s
+	return s.where(&s.wheres, &s.wheresArgs, and, where, args...)
+}
+
+func (s *SQL) WhereIn(where string, args ...interface{}) *SQL {
+	return s.whereIn(sqlAnd, where, args...)
+}
+
+func (s *SQL) WhereOrIn(where string, args ...interface{}) *SQL {
+	return s.whereIn(sqlOr, where, args...)
 }
 
 func (s *SQL) Group(groups ...string) *SQL {
@@ -166,9 +201,11 @@ func (s *SQL) Group(groups ...string) *SQL {
 }
 
 func (s *SQL) Having(having string, args ...interface{}) *SQL {
-	s.havings = append(s.havings, having)
-	s.havingsArgs = append(s.havingsArgs, args...)
-	return s
+	return s.where(&s.havings, &s.havingsArgs, sqlAnd, having, args...)
+}
+
+func (s *SQL) HavingOr(having string, args ...interface{}) *SQL {
+	return s.where(&s.havings, &s.havingsArgs, sqlOr, having, args...)
 }
 
 func (s *SQL) Order(orders ...string) *SQL {
@@ -242,7 +279,7 @@ func (s *SQL) toSelect(columns ...string) (string, []interface{}) {
 	}
 	where := ""
 	if len(s.wheres) > 0 {
-		where = " WHERE " + strings.Join(s.wheres, " AND ")
+		where = " WHERE " + strings.Join(s.wheres, "")
 	}
 	group := ""
 	if len(s.groups) > 0 {
@@ -250,7 +287,7 @@ func (s *SQL) toSelect(columns ...string) (string, []interface{}) {
 	}
 	having := ""
 	if len(s.havings) > 0 {
-		having = " HAVING " + strings.Join(s.havings, " AND ")
+		having = " HAVING " + strings.Join(s.havings, "")
 	}
 	order := ""
 	if len(s.orders) > 0 {
@@ -278,7 +315,7 @@ func (s *SQL) toSelect(columns ...string) (string, []interface{}) {
 
 func (s *SQL) NewCount() *SQL {
 	sc := new(SQL)
-	sc.mode = SQLCount
+	sc.mode = sqlCount
 	sc.table = s.table
 	sc.alias = s.alias
 	sc.columns = []string{"count(*) AS count"}
@@ -322,7 +359,7 @@ func (s *SQL) toUpdate() (string, []interface{}) {
 	defer s.Reset()
 
 	set := strings.Join(s.sets, ", ")
-	where := strings.Join(s.wheres, " AND ")
+	where := strings.Join(s.wheres, "")
 	order := ""
 	if len(s.orders) > 0 {
 		order = " ORDER BY " + strings.Join(s.orders, ", ")
@@ -348,7 +385,7 @@ func (s *SQL) toDelete() (string, []interface{}) {
 
 	defer s.Reset()
 
-	where := strings.Join(s.wheres, " AND ")
+	where := strings.Join(s.wheres, "")
 	order := ""
 	if len(s.orders) > 0 {
 		order = " ORDER BY " + strings.Join(s.orders, ", ")
@@ -363,15 +400,15 @@ func (s *SQL) toDelete() (string, []interface{}) {
 
 func (s *SQL) SQL() (string, []interface{}) {
 	switch s.mode {
-	case SQLSelect, SQLCount:
+	case sqlSelect, sqlCount:
 		return s.toSelect()
-	case SQLInsert:
+	case sqlInsert:
 		return s.toInsert()
-	case SQLReplace:
+	case sqlReplace:
 		return s.toReplace()
-	case SQLUpdate:
+	case sqlUpdate:
 		return s.toUpdate()
-	case SQLDelete:
+	case sqlDelete:
 		return s.toDelete()
 	default:
 		panic("not reached")

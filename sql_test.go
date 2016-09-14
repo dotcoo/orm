@@ -43,6 +43,14 @@ func TestSQLSelect(t *testing.T) {
 		t.Errorf("sq_count error: %s, %v", sq, params)
 	}
 
+	// where or
+	sq, params = NewSelect().From("user").Where("username = ?", "dotcoo").Where("(").WhereOr("uid = ?", 1).WhereOr("uid = ?", 2).WhereOr("uid BETWEEN ? AND ?", 5, 9).WhereOrIn("uid IN (?)", 11, 12, 13, 14, 15).WhereOr("uid >= ?", 20).Where(")").SQL()
+	sq_where := "SELECT * FROM `user` WHERE username = ? AND (uid = ? OR uid = ? OR uid BETWEEN ? AND ? OR uid IN (?, ?, ?, ?, ?) OR uid >= ?)"
+	params_where := []interface{}{"dotcoo", 1, 2, 5, 9, 11, 12, 13, 14, 15, 20}
+	if sq != sq_where || !reflect.DeepEqual(params, params_where) {
+		t.Errorf("sq_where error: %s, %v", sq, params)
+	}
+
 	// select
 	sq, params = NewSelect("user").From("blog", "b").Join("user", "u", "b.user_id = u.id").Where("b.start > ?", 200).Page(3, 10).SQL()
 	sq_join := "SELECT * FROM `blog` AS `b` LEFT JOIN `user` AS `u` ON b.user_id = u.id WHERE b.start > ? LIMIT 10 OFFSET 20"

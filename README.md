@@ -269,8 +269,8 @@ ORM library for Go Golang
 
 ### Where OR
 
-	orm.NewSelect("test_user").Where("username = ? or username = ?", "dotcoo", "dotcoo2").SQL()
-	// SELECT * FROM test_user WHERE username = ? or username = ? [dotcoo dotcoo2]
+	orm.NewSelect("test_user").Where("(").Where("username = ?", "dotcoo").WhereOr("username = ?", "dotcoo2").Where(")").SQL()
+	// SELECT * FROM test_user WHERE (username = ? or username = ?) [dotcoo dotcoo2]
 
 ### Columns and Table
 
