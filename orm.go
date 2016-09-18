@@ -428,6 +428,7 @@ func (o *ORM) RawGetBy(model interface{}, columns ...string) (bool, error) {
 	if len(columns) == 0 {
 		panic("columns not can null!")
 	}
+	columns = columnsDefault(mi, columns...)
 	sq := NewSelect()
 	for _, column := range columns {
 		sq.Where(fmt.Sprintf("`%s` = ?", column), v.FieldByName(mi.Field(column).Field).Interface())

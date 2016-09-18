@@ -47,7 +47,7 @@ type SQL struct {
 	orm             *ORM          // ORM
 }
 
-func NewSQL(mode int, table ...string) *SQL {
+func newSQLMode(mode int, table ...string) *SQL {
 	s := new(SQL)
 	s.mode = mode
 	s.From(table...)
@@ -63,24 +63,28 @@ func NewSQL(mode int, table ...string) *SQL {
 	return s
 }
 
+func NewSQL(table ...string) *SQL {
+	return newSQLMode(sqlSelect, table...)
+}
+
 func NewSelect(table ...string) *SQL {
-	return NewSQL(sqlSelect, table...)
+	return newSQLMode(sqlSelect, table...)
 }
 
 func NewInsert(table ...string) *SQL {
-	return NewSQL(sqlInsert, table...)
+	return newSQLMode(sqlInsert, table...)
 }
 
 func NewReplace(table ...string) *SQL {
-	return NewSQL(sqlReplace, table...)
+	return newSQLMode(sqlReplace, table...)
 }
 
 func NewUpdate(table ...string) *SQL {
-	return NewSQL(sqlUpdate, table...)
+	return newSQLMode(sqlUpdate, table...)
 }
 
 func NewDelete(table ...string) *SQL {
-	return NewSQL(sqlDelete, table...)
+	return newSQLMode(sqlDelete, table...)
 }
 
 func (s *SQL) Reset() *SQL {
@@ -313,21 +317,6 @@ func (s *SQL) toSelect(columns ...string) (string, []interface{}) {
 	return sq, args
 }
 
-func (s *SQL) NewCount() *SQL {
-	sc := new(SQL)
-	sc.mode = sqlCount
-	sc.table = s.table
-	sc.alias = s.alias
-	sc.columns = []string{"count(*) AS count"}
-	sc.from = s.from
-	sc.wheres = s.wheres
-	sc.wheresArgs = s.wheresArgs
-	sc.limit = -1
-	sc.offset = -1
-	sc.orm = s.orm
-	return sc
-}
-
 func (s *SQL) toInsert() (string, []interface{}) {
 	if len(s.sets) == 0 {
 		panic("Insert sets is empty!")
@@ -420,7 +409,89 @@ func (s *SQL) String() string {
 	return fmt.Sprintf("%s %v", sq, args)
 }
 
+// set method
+
+func (s *SQL) setMode(mode int) *SQL {
+	s.mode = mode
+	return s
+}
+
 func (s *SQL) SetORM(orm *ORM) *SQL {
 	s.orm = orm
 	return s
+}
+
+// clone sql
+
+func (s *SQL) Clone() *SQL {
+	sc := new(SQL)
+	sc.mode = s.mode                                         // sql mode
+	sc.table = s.table                                       // table
+	sc.alias = s.alias                                       // table alias
+	sc.keywords = make([]string, len(s.keywords))            // keywords
+	sc.columns = make([]string, len(s.columns))              // columns
+	sc.from = s.from                                         // from
+	sc.cols = make([]string, len(s.cols))                    // cols
+	sc.sets = make([]string, len(s.sets))                    // sets
+	sc.setsArgs = make([]interface{}, len(s.setsArgs))       // sets args
+	sc.joins = make([]string, len(s.joins))                  // joins
+	sc.wheres = make([]string, len(s.wheres))                // where
+	sc.wheresArgs = make([]interface{}, len(s.wheresArgs))   // where args
+	sc.groups = make([]string, len(s.groups))                // group
+	sc.havings = make([]string, len(s.havings))              // having
+	sc.havingsArgs = make([]interface{}, len(s.havingsArgs)) // having args
+	sc.orders = make([]string, len(s.orders))                // order
+	sc.limit = s.limit                                       // limit
+	sc.offset = s.offset                                     // offset
+	sc.forUpdate = s.forUpdate                               // read lock
+	sc.lockInShareMode = s.lockInShareMode                   // write lock
+	sc.orm = s.orm                                           // ORM
+	copy(sc.keywords, s.keywords)
+	copy(sc.columns, s.columns)
+	copy(sc.cols, s.cols)
+	copy(sc.sets, s.sets)
+	copy(sc.setsArgs, s.setsArgs)
+	copy(sc.joins, s.joins)
+	copy(sc.wheres, s.wheres)
+	copy(sc.wheresArgs, s.wheresArgs)
+	copy(sc.groups, s.groups)
+	copy(sc.havings, s.havings)
+	copy(sc.havingsArgs, s.havingsArgs)
+	copy(sc.orders, s.orders)
+	return sc
+}
+
+func (s *SQL) NewSelect() *SQL {
+	return s.Clone().setMode(sqlSelect)
+}
+
+func (s *SQL) NewCount() *SQL {
+	sc := s.Clone().setMode(sqlCount)
+	sc.keywords = sc.keywords[0:0]
+	sc.columns = []string{"count(*) AS count"}
+	sc.cols = sc.cols[0:0]
+	sc.sets = sc.sets[0:0]
+	sc.setsArgs = sc.setsArgs[0:0]
+	sc.orders = sc.orders[0:0]
+	sc.limit = -1
+	sc.offset = -1
+	sc.forUpdate = ""
+	sc.lockInShareMode = ""
+	return sc
+}
+
+func (s *SQL) NewInsert() *SQL {
+	return s.Clone().setMode(sqlInsert)
+}
+
+func (s *SQL) NewReplace() *SQL {
+	return s.Clone().setMode(sqlReplace)
+}
+
+func (s *SQL) NewUpdate() *SQL {
+	return s.Clone().setMode(sqlUpdate)
+}
+
+func (s *SQL) NewDelete() *SQL {
+	return s.Clone().setMode(sqlDelete)
 }

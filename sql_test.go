@@ -37,8 +37,8 @@ func TestSQLSelect(t *testing.T) {
 
 	// count
 	sq, params = s.NewCount().SQL()
-	sq_count := "SELECT count(*) AS count FROM `user` WHERE username = ? AND age BETWEEN ? AND ? AND no IN (?, ?, ?, ?, ?)"
-	params_count := []interface{}{"dotcoo", 18, 25, 1, 2, 3, 4, 5}
+	sq_count := "SELECT count(*) AS count FROM `user` WHERE username = ? AND age BETWEEN ? AND ? AND no IN (?, ?, ?, ?, ?) GROUP BY age HAVING count > ? AND count < ?"
+	params_count := []interface{}{"dotcoo", 18, 25, 1, 2, 3, 4, 5, 3, 10}
 	if sq != sq_count || !reflect.DeepEqual(params, params_count) {
 		t.Errorf("sq_count error: %s, %v", sq, params)
 	}
