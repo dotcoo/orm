@@ -68,6 +68,10 @@ func (s *SQL) SelectVal(vals ...interface{}) bool {
 	return s.orm.SelectVal(s, vals...)
 }
 
+func (s *SQL) SelectCount(model interface{}, columns ...string) (bool, int) {
+	return s.orm.Select(s, model, columns...), s.orm.Count(s)
+}
+
 func (s *SQL) Count() int {
 	return s.orm.Count(s)
 }

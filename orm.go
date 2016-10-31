@@ -423,17 +423,31 @@ func (o *ORM) RawGet(model interface{}, columns ...string) (bool, error) {
 	return o.RawSelect(whereById(NewSelect(), o, model), model, columns...)
 }
 
+func stringsIndex(ss []string, val string) int {
+	for i, v := range ss {
+		if v == val {
+			return i
+		}
+	}
+	return -1
+}
+
 func (o *ORM) RawGetBy(model interface{}, columns ...string) (bool, error) {
-	mi, v := o.Manager().ValueOf(model)
 	if len(columns) == 0 {
 		panic("columns not can null!")
 	}
-	columns = columnsDefault(mi, columns...)
-	sq := NewSelect()
-	for _, column := range columns {
+	var cs []string
+	if i := stringsIndex(columns, ""); i == -1 {
+		cs, columns = columns, cs
+	} else {
+		cs, columns = columns[:i], columns[i+1:]
+	}
+	mi, v := o.Manager().ValueOf(model)
+	sq := o.NewSelect()
+	for _, column := range cs {
 		sq.Where(fmt.Sprintf("`%s` = ?", column), v.FieldByName(mi.Field(column).Field).Interface())
 	}
-	return o.RawSelect(sq, model)
+	return o.RawSelect(sq, model, columns...)
 }
 
 func (o *ORM) RawUp(model interface{}, columns ...string) (sql.Result, error) {
