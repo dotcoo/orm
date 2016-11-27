@@ -6,7 +6,13 @@ set -eu
 cat > sql_tmp_orm.go << EOF
 package orm
 type ORM struct {}
-var DefaultORM = new(ORM)
+func (o *ORM) sqlFrom(s *SQL, table string) string {
+	return table
+}
+func (o *ORM) sqlJoin(s *SQL, table, cond string) (string, string) {
+	return table, cond
+}
+type ModelInfo struct{}
 EOF
 go test sql_tmp_orm.go sql.go sql_test.go
 rm sql_tmp_orm.go

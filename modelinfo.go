@@ -215,6 +215,7 @@ func (mi *ModelInfo) Field(column string) *ModelField {
 
 type ModelInfoManager struct {
 	modelInfos map[reflect.Type]*ModelInfo
+	tableInfos map[string]*ModelInfo
 	mtx        sync.RWMutex
 	prefix     string
 }
@@ -224,6 +225,7 @@ var DefaultModelInfoManager *ModelInfoManager = NewModelInfoManager()
 func NewModelInfoManager() *ModelInfoManager {
 	m := new(ModelInfoManager)
 	m.modelInfos = make(map[reflect.Type]*ModelInfo)
+	m.tableInfos = make(map[string]*ModelInfo)
 	return m
 }
 
@@ -239,6 +241,7 @@ func (m *ModelInfoManager) Set(mi *ModelInfo) {
 		}
 	}
 	m.modelInfos[mi.Type] = mi
+	m.tableInfos[mi.Table] = mi
 	m.mtx.Unlock()
 }
 
@@ -263,4 +266,8 @@ func (m *ModelInfoManager) ValueOf(model interface{}) (*ModelInfo, reflect.Value
 		m.Set(mi)
 	}
 	return mi, v
+}
+
+func (m *ModelInfoManager) TableOf(table string) *ModelInfo {
+	return m.tableInfos[table]
 }

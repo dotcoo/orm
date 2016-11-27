@@ -11,7 +11,7 @@ import (
 
 func TestSQLSelect(t *testing.T) {
 	// all method
-	s := NewSelect().
+	s := new(SQL).
 		Keywords("SQL_NO_CACHE").
 		CalcFoundRows().
 		Columns("username, password", "email", "count(*) as count").
@@ -19,7 +19,6 @@ func TestSQLSelect(t *testing.T) {
 		Where("username = ?", "dotcoo").
 		Where("age BETWEEN ? AND ?", 18, 25).
 		WhereIn("no IN (?)", 1, 2, 3, 4, 5).
-		// WhereIn("no IN (?)", []int{1, 2, 3, 4, 5}...).
 		Group("age").
 		Having("count > ?", 3).
 		Having("count < ?", 10).
@@ -28,7 +27,7 @@ func TestSQLSelect(t *testing.T) {
 		Offset(20).
 		ForUpdate().
 		LockInShareMode()
-	sq, params := s.SQL()
+	sq, params := s.ToSelect()
 	sq_select := "SELECT SQL_NO_CACHE SQL_CALC_FOUND_ROWS username, password, email, count(*) as count FROM `user` WHERE username = ? AND age BETWEEN ? AND ? AND no IN (?, ?, ?, ?, ?) GROUP BY age HAVING count > ? AND count < ? ORDER BY id DESC, username, password DESC LIMIT 10 OFFSET 20 FOR UPDATE LOCK IN SHARE MODE"
 	params_select := []interface{}{"dotcoo", 18, 25, 1, 2, 3, 4, 5, 3, 10}
 	if sq != sq_select || !reflect.DeepEqual(params, params_select) {
@@ -36,7 +35,7 @@ func TestSQLSelect(t *testing.T) {
 	}
 
 	// count
-	sq, params = s.NewCount().SQL()
+	sq, params = s.NewCount().ToSelect()
 	sq_count := "SELECT count(*) AS count FROM `user` WHERE username = ? AND age BETWEEN ? AND ? AND no IN (?, ?, ?, ?, ?) GROUP BY age HAVING count > ? AND count < ?"
 	params_count := []interface{}{"dotcoo", 18, 25, 1, 2, 3, 4, 5, 3, 10}
 	if sq != sq_count || !reflect.DeepEqual(params, params_count) {
@@ -44,7 +43,7 @@ func TestSQLSelect(t *testing.T) {
 	}
 
 	// where or
-	sq, params = NewSelect().From("user").Where("username = ?", "dotcoo").Where("(").WhereOr("uid = ?", 1).WhereOr("uid = ?", 2).WhereOr("uid BETWEEN ? AND ?", 5, 9).WhereOrIn("uid IN (?)", 11, 12, 13, 14, 15).WhereOr("uid >= ?", 20).Where(")").SQL()
+	sq, params = new(SQL).From("user").Where("username = ?", "dotcoo").Where("(uid = ?", 1).Where(" OR uid = ?", 2).Where(" OR uid BETWEEN ? AND ?", 5, 9).WhereIn(" OR uid IN (?)", 11, 12, 13, 14, 15).Where(" OR uid >= ?)", 20).ToSelect()
 	sq_where := "SELECT * FROM `user` WHERE username = ? AND (uid = ? OR uid = ? OR uid BETWEEN ? AND ? OR uid IN (?, ?, ?, ?, ?) OR uid >= ?)"
 	params_where := []interface{}{"dotcoo", 1, 2, 5, 9, 11, 12, 13, 14, 15, 20}
 	if sq != sq_where || !reflect.DeepEqual(params, params_where) {
@@ -52,7 +51,7 @@ func TestSQLSelect(t *testing.T) {
 	}
 
 	// select
-	sq, params = NewSelect("user").From("blog", "b").Join("user", "u", "b.user_id = u.id").Where("b.start > ?", 200).Page(3, 10).SQL()
+	sq, params = new(SQL).From("blog AS b").Join("user AS u", "b.user_id = u.id").Where("b.start > ?", 200).Page(3, 10).ToSelect()
 	sq_join := "SELECT * FROM `blog` AS `b` LEFT JOIN `user` AS `u` ON b.user_id = u.id WHERE b.start > ? LIMIT 10 OFFSET 20"
 	params_join := []interface{}{200}
 	if sq != sq_join || !reflect.DeepEqual(params, params_join) {
@@ -60,7 +59,7 @@ func TestSQLSelect(t *testing.T) {
 	}
 
 	// insert
-	sq, params = NewInsert("user").From("user").Set("username", "dotcoo").Set("password", "dotcoopwd").Set("age", 1).SQL()
+	sq, params = new(SQL).From("user").Set("username", "dotcoo").Set("password", "dotcoopwd").Set("age", 1).ToInsert()
 	sq_insert := "INSERT INTO `user` (`username`, `password`, `age`) VALUES (?, ?, ?)"
 	params_insert := []interface{}{"dotcoo", "dotcoopwd", 1}
 	if sq != sq_insert || !reflect.DeepEqual(params, params_insert) {
@@ -68,7 +67,7 @@ func TestSQLSelect(t *testing.T) {
 	}
 
 	// replace
-	sq, params = NewReplace("user").From("user").Set("username", "dotcoo").Set("password", "dotcoopwd").Set("age", 1).SQL()
+	sq, params = new(SQL).From("user").Set("username", "dotcoo").Set("password", "dotcoopwd").Set("age", 1).ToReplace()
 	sq_replace := "REPLACE INTO `user` (`username`, `password`, `age`) VALUES (?, ?, ?)"
 	params_replace := []interface{}{"dotcoo", "dotcoopwd", 1}
 	if sq != sq_replace || !reflect.DeepEqual(params, params_replace) {
@@ -76,7 +75,7 @@ func TestSQLSelect(t *testing.T) {
 	}
 
 	// update
-	sq, params = NewUpdate("user").From("user").Set("username", "dotcoo").Set("password", "dotcoopwd").Set("age", 1).Where("id = ?", 1).SQL()
+	sq, params = new(SQL).From("user").Set("username", "dotcoo").Set("password", "dotcoopwd").Set("age", 1).Where("id = ?", 1).ToUpdate()
 	sq_update := "UPDATE `user` SET `username` = ?, `password` = ?, `age` = ? WHERE id = ?"
 	params_update := []interface{}{"dotcoo", "dotcoopwd", 1, 1}
 	if sq != sq_update || !reflect.DeepEqual(params, params_update) {
@@ -84,7 +83,7 @@ func TestSQLSelect(t *testing.T) {
 	}
 
 	// delete
-	sq, params = NewDelete("user").Where("id = ?", 1).SQL()
+	sq, params = new(SQL).From("user").Where("id = ?", 1).ToDelete()
 	sq_delete := "DELETE FROM `user` WHERE id = ?"
 	params_delete := []interface{}{1}
 	if sq != sq_delete || !reflect.DeepEqual(params, params_delete) {
@@ -92,7 +91,7 @@ func TestSQLSelect(t *testing.T) {
 	}
 
 	// page
-	sq, params = NewSelect("user").Page(3, 10).SQL()
+	sq, params = new(SQL).From("user").Page(3, 10).ToSelect()
 	sq_page := "SELECT * FROM `user` LIMIT 10 OFFSET 20"
 	params_page := []interface{}{}
 	if sq != sq_page || !reflect.DeepEqual(params, params_page) {
@@ -100,7 +99,7 @@ func TestSQLSelect(t *testing.T) {
 	}
 
 	// plus
-	sq, params = NewUpdate("user").Plus("age", 1).Where("id = ?", 1).SQL()
+	sq, params = new(SQL).From("user").Plus("age", 1).Where("id = ?", 1).ToUpdate()
 	sq_plus := "UPDATE `user` SET `age` = `age` + ? WHERE id = ?"
 	params_plus := []interface{}{1, 1}
 	if sq != sq_plus || !reflect.DeepEqual(params, params_plus) {
@@ -108,7 +107,7 @@ func TestSQLSelect(t *testing.T) {
 	}
 
 	// incr
-	sq, params = NewUpdate("user").Incr("age", 1).Where("id = ?", 1).SQL()
+	sq, params = new(SQL).From("user").Incr("age", 1).Where("id = ?", 1).ToUpdate()
 	sq_incr := "UPDATE `user` SET `age` = last_insert_id(`age` + ?) WHERE id = ?"
 	params_incr := []interface{}{1, 1}
 	if sq != sq_incr || !reflect.DeepEqual(params, params_incr) {
@@ -118,7 +117,7 @@ func TestSQLSelect(t *testing.T) {
 
 func BenchmarkSQL(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		NewSelect().
+		new(SQL).
 			Keywords("SQL_NO_CACHE").
 			CalcFoundRows().
 			Columns("username, password", "email", "count(*) as count").
@@ -135,8 +134,8 @@ func BenchmarkSQL(b *testing.B) {
 			Offset(20).
 			ForUpdate().
 			LockInShareMode().
-			SQL()
-		NewInsert().
+			ToSelect()
+		new(SQL).
 			From("user").
 			Set("username", "dotcoo").
 			Set("password", "dotcoopwd").
@@ -150,8 +149,8 @@ func BenchmarkSQL(b *testing.B) {
 			Set("col8", "col8").
 			Set("col9", "col9").
 			Set("col0", "col0").
-			SQL()
-		NewReplace().
+			ToInsert()
+		new(SQL).
 			From("user").
 			Set("id", 1).
 			Set("username", "dotcoo").
@@ -166,18 +165,18 @@ func BenchmarkSQL(b *testing.B) {
 			Set("col8", "col8").
 			Set("col9", "col9").
 			Set("col0", "col0").
-			SQL()
-		NewUpdate().
+			ToReplace()
+		new(SQL).
 			From("user").
 			Set("password", "dotcoopwd").
 			Set("col1", "col1").
 			Set("col2", "col2").
 			Set("col3", "col3").
 			Where("username = ?", "dotcoo").
-			SQL()
-		NewDelete().
+			ToUpdate()
+		new(SQL).
 			From("user").
 			Where("username = ?", "dotcoo").
-			SQL()
+			ToDelete()
 	}
 }

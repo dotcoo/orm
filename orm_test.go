@@ -113,7 +113,7 @@ func TestOrmUpdate(t *testing.T) {
 	u.ID = 1
 	u.Username = "dotcoo"
 	u.Password = "dotcoo123"
-	result, err := o.RawUpdate(NewUpdate().Where("id = ?", u.ID), u, "username, password")
+	result, err := o.RawUpdate(new(SQL).Where("id = ?", u.ID), u, "username, password")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -129,7 +129,7 @@ func TestOrmUpdate(t *testing.T) {
 func TestOrmSelect(t *testing.T) {
 	u := new(User)
 	u.ID = 1
-	exist, err := o.RawSelect(NewSelect().Where("id = ?", u.ID), u)
+	exist, err := o.RawSelect(new(SQL).Where("id = ?", u.ID), u)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +138,7 @@ func TestOrmSelect(t *testing.T) {
 	}
 
 	users := make([]User, 0, 100)
-	s := NewSelect()
+	s := new(SQL)
 	exist, err = o.RawSelect(s, &users, "id, username")
 	if err != nil {
 		t.Fatal(err)
@@ -158,7 +158,7 @@ func TestOrmSelect(t *testing.T) {
 }
 
 func TestOrmSelectVal(t *testing.T) {
-	s := NewSelect("test_user").Columns("count(*)", "sum(id)", "avg(id)")
+	s := o.NewSQL().From("user").Columns("count(*)", "sum(id)", "avg(id)")
 	var count, sum int
 	var avg float64
 	exist, err := o.RawSelectVal(s, &count, &sum, &avg)
@@ -194,7 +194,7 @@ func TestOrmReplace(t *testing.T) {
 func TestOrmDelete(t *testing.T) {
 	u := new(User)
 	u.ID = 1
-	result, err := o.RawDelete(NewDelete().Where("id = ?", u.ID), u)
+	result, err := o.RawDelete(new(SQL).Where("id = ?", u.ID), u)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -208,7 +208,7 @@ func TestOrmDelete(t *testing.T) {
 
 	b := new(Blog)
 	b.ID = 1
-	result, err = o.RawDelete(NewDelete().Where("id = ?", b.ID), b)
+	result, err = o.RawDelete(new(SQL).Where("id = ?", b.ID), b)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -399,7 +399,7 @@ func TestOrmSave(t *testing.T) {
 
 func TestOrmForeignKey_Slice(t *testing.T) {
 	blogs := make([]Blog, 0, 100)
-	s := NewSelect().Where("id > ?", 10).Order("id").Page(3, 10)
+	s := new(SQL).Where("id > ?", 10).Order("id").Page(3, 10)
 	exist, err := o.RawSelect(s, &blogs)
 	if err != nil {
 		t.Fatal(err)
@@ -420,7 +420,7 @@ func TestOrmForeignKey_Slice(t *testing.T) {
 
 func TestOrmForeignKey_Map(t *testing.T) {
 	blogs := make([]Blog, 0, 100)
-	s := NewSelect().Where("id > ?", 10).Order("id").Page(3, 10)
+	s := new(SQL).Where("id > ?", 10).Order("id").Page(3, 10)
 	exist, err := o.RawSelect(s, &blogs)
 	if err != nil {
 		t.Fatal(err)
@@ -458,7 +458,7 @@ func TestOrmTransaction(t *testing.T) {
 	u = new(User)
 	u.ID = 1
 
-	s := NewSelect().Where("id = ?", u.ID).ForUpdate()
+	s := new(SQL).Where("id = ?", u.ID).ForUpdate()
 	exist, err = otx.RawSelect(s, u)
 	if err != nil {
 		t.Fatal(err)

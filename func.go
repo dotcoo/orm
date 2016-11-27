@@ -10,12 +10,18 @@ import (
 
 // default ORM method
 
+var DefaultORM *ORM = NewORM(nil)
+
 func SetDB(db *sql.DB) {
 	DefaultORM.SetDB(db)
 }
 
 func SetPrefix(prefix string) {
 	DefaultORM.SetPrefix(prefix)
+}
+
+func NewSQL() *SQL {
+	return DefaultORM.NewSQL()
 }
 
 func Exec(query string, args ...interface{}) sql.Result {
@@ -28,6 +34,18 @@ func Query(query string, args ...interface{}) *sql.Rows {
 
 func QueryRow(query string, args ...interface{}) *sql.Row {
 	return DefaultORM.QueryRow(query, args...)
+}
+
+func Begin() *ORM {
+	return DefaultORM.Begin()
+}
+
+func Commit() {
+	DefaultORM.Commit()
+}
+
+func Rollback() {
+	DefaultORM.Rollback()
 }
 
 func Select(s *SQL, model interface{}, columns ...string) bool {
